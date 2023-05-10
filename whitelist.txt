@@ -250,4 +250,5 @@ getoption
 hookimpl
 hookwrapper
 originalname
+pytestmark
 runtest
