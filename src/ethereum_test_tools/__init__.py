@@ -23,7 +23,11 @@ from .common import (
     to_hash,
     to_hash_bytes,
 )
-from .filling.decorators import test_from, test_from_until, test_only
+from .filling.decorators import (  # type: ignore
+    test_from,
+    test_from_until,
+    test_only,
+)
 from .filling.fill import fill_test
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import (
