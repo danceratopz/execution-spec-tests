@@ -254,3 +254,4 @@ modifyitems
 originalname
 pytestmark
 runtest
+trylast
