@@ -5,7 +5,6 @@ Source tests: https://github.com/ethereum/tests/pull/990
               https://github.com/ethereum/tests/pull/1012
 """
 
-from string import Template
 from typing import Any, Dict
 
 import pytest
