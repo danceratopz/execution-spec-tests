@@ -248,6 +248,8 @@ addoption
 argname
 autouse
 callspec
+collectonly
+dedent
 dest
 fixturenames
 funcargs
@@ -255,6 +257,7 @@ getgroup
 getoption
 hookimpl
 hookwrapper
+metafunc
 modifyitems
 originalname
 parametrized
