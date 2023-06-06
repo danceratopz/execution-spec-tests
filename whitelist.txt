@@ -245,6 +245,7 @@ invalid
 selfdestruct
 
 addoption
+addinivalue
 argname
 autouse
 callspec
@@ -265,6 +266,7 @@ param
 parametrize
 pytestmark
 runtest
+tryfirst
 trylast
 
 mkdocs
