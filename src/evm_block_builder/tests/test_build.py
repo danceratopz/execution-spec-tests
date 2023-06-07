@@ -6,9 +6,7 @@ import pytest
 
 from evm_block_builder import BlockBuilder, EvmBlockBuilder
 
-FIXTURES_ROOT = Path(
-    os.path.join("src", "evm_block_builder", "tests", "fixtures")
-)
+FIXTURES_ROOT = Path(os.path.join("src", "evm_block_builder", "tests", "fixtures"))
 
 
 @pytest.mark.parametrize("b11r", [EvmBlockBuilder()])
@@ -20,9 +18,9 @@ def test_evm_simple(b11r: BlockBuilder, test_dir: str) -> None:
     ommers_path = Path(FIXTURES_ROOT, test_dir, "ommers.json")
     expected_path = Path(FIXTURES_ROOT, test_dir, "exp.json")
 
-    with open(env_path, "r") as env, open(txs_path, "r") as txs, open(
-        ommers_path, "r"
-    ) as ommers, open(expected_path, "r") as exp:
+    with open(env_path, "r") as env, open(txs_path, "r") as txs, open(ommers_path, "r") as ommers, open(
+        expected_path, "r"
+    ) as exp:
         env = json.load(env)
         txs = json.load(txs)
         ommers = json.load(ommers)

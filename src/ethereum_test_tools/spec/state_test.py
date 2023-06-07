@@ -2,17 +2,7 @@
 State test filler.
 """
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -84,9 +74,7 @@ class StateTest(BaseTest):
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
             excess_data_gas=env.excess_data_gas,
-            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
-            if env.withdrawals is not None
-            else None,
+            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork) if env.withdrawals is not None else None,
         )
 
         (genesis_rlp, genesis.hash) = b11r.build(
@@ -145,9 +133,7 @@ class StateTest(BaseTest):
                 "parentHash": genesis.hash,
                 "miner": env.coinbase,
                 "transactionsRoot": result.get("txRoot"),
-                "difficulty": str_or_none(
-                    env.difficulty, result.get("currentDifficulty")
-                ),
+                "difficulty": str_or_none(env.difficulty, result.get("currentDifficulty")),
                 "number": str(env.number),
                 "gasLimit": str(env.gas_limit),
                 "timestamp": str(env.timestamp),

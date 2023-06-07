@@ -4,14 +4,7 @@ Test EIP-1344 CHAINID opcode
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Environment,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-    to_address,
-)
+from ethereum_test_tools import Account, Environment, StateTestFiller, TestAddress, Transaction, to_address
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
@@ -44,9 +37,7 @@ def test_chain_id(state_test: StateTestFiller):
     )
 
     post = {
-        to_address(0x100): Account(
-            code="0x4660015500", storage={"0x01": "0x01"}
-        ),
+        to_address(0x100): Account(code="0x4660015500", storage={"0x01": "0x01"}),
     }
 
     state_test(env=env, pre=pre, post=post, txs=[tx])

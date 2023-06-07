@@ -8,9 +8,7 @@ import pytest
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import EvmTransitionTool, TransitionTool
 
-FIXTURES_ROOT = Path(
-    os.path.join("src", "evm_transition_tool", "tests", "fixtures")
-)
+FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
 
 
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])
@@ -88,9 +86,9 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
     env_path = Path(FIXTURES_ROOT, test_dir, "env.json")
     expected_path = Path(FIXTURES_ROOT, test_dir, "exp.json")
 
-    with open(alloc_path, "r") as alloc, open(txs_path, "r") as txs, open(
-        env_path, "r"
-    ) as env, open(expected_path, "r") as exp:
+    with open(alloc_path, "r") as alloc, open(txs_path, "r") as txs, open(env_path, "r") as env, open(
+        expected_path, "r"
+    ) as exp:
         print(expected_path)
         alloc = json.load(alloc)
         txs = json.load(txs)

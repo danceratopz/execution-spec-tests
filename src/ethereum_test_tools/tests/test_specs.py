@@ -86,9 +86,7 @@ from ..spec import verify_post_alloc
         ),
     ],
 )
-def test_verify_post_alloc(
-    post: Mapping[str, Account], alloc: Mapping[str, Any], should_pass: bool
-):
+def test_verify_post_alloc(post: Mapping[str, Account], alloc: Mapping[str, Any], should_pass: bool):
     if should_pass:
         verify_post_alloc(post, alloc)
     else:

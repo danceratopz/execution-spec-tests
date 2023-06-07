@@ -47,10 +47,7 @@ class UnableToCheckReferenceSpec(Warning):
     """
 
     def __init__(self, filler_module: str, error: Exception):
-        super().__init__(
-            f"Reference spec could not be determined for "
-            f"{filler_module}: {error}."
-        )
+        super().__init__(f"Reference spec could not be determined for " f"{filler_module}: {error}.")
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -61,9 +58,7 @@ def reference_spec(request):
     """
     module_dict = request.module.__dict__
     parseable_ref_specs = [
-        ref_spec_type
-        for ref_spec_type in ReferenceSpecTypes
-        if ref_spec_type.parseable_from_module(module_dict)
+        ref_spec_type for ref_spec_type in ReferenceSpecTypes if ref_spec_type.parseable_from_module(module_dict)
     ]
     filler_module = request.module.__name__
     if any(filler_module.startswith(package) for package in IGNORE_PACKAGES):

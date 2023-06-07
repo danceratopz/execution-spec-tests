@@ -127,10 +127,7 @@ class TransitionTool:
         (_, result, _) = self.evaluate({}, [], env, fork)
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
-            raise Exception(
-                "Unable to calculate withdrawals root: "
-                + "no value returned from transition tool"
-            )
+            raise Exception("Unable to calculate withdrawals root: " + "no value returned from transition tool")
         if type(withdrawals_root) is not str:
             raise Exception(
                 "Unable to calculate withdrawals root: "
@@ -170,10 +167,7 @@ class EvmTransitionTool(TransitionTool):
         try:
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            raise Exception(
-                "evm process unexpectedly returned a non-zero status code: "
-                f"{e}."
-            )
+            raise Exception("evm process unexpectedly returned a non-zero status code: " f"{e}.")
         except Exception as e:
             raise Exception(f"Unexpected exception calling evm tool: {e}.")
         self.help_string = result.stdout
@@ -246,9 +240,7 @@ class EvmTransitionTool(TransitionTool):
             for i, r in enumerate(receipts):
                 h = r["transactionHash"]
                 trace_file_name = f"trace-{i}-{h}.jsonl"
-                with open(
-                    os.path.join(temp_dir.name, trace_file_name), "r"
-                ) as trace_file:
+                with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
                     tx_traces: List[Dict] = []
                     for trace_line in trace_file.readlines():
                         tx_traces.append(json.loads(trace_line))
@@ -270,9 +262,7 @@ class EvmTransitionTool(TransitionTool):
             )
 
             if result.returncode != 0:
-                raise Exception(
-                    "failed to evaluate: " + result.stderr.decode()
-                )
+                raise Exception("failed to evaluate: " + result.stderr.decode())
 
             self.cached_version = result.stdout.decode().strip()
 

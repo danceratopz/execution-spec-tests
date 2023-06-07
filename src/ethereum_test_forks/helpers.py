@@ -67,9 +67,7 @@ def get_transition_forks() -> List[Fork]:
         fork = transition.__dict__[fork_name]
         if not isinstance(fork, type):
             continue
-        if issubclass(fork, TransitionBaseClass) and issubclass(
-            fork, BaseFork
-        ):
+        if issubclass(fork, TransitionBaseClass) and issubclass(fork, BaseFork):
             transition_forks.append(fork)
 
     return transition_forks
@@ -83,10 +81,7 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
             continue
-        if (
-            transition_fork.transitions_to() == fork_to
-            and transition_fork.transitions_from() == fork_from
-        ):
+        if transition_fork.transitions_to() == fork_to and transition_fork.transitions_from() == fork_from:
             return transition_fork
 
     return None

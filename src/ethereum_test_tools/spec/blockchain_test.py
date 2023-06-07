@@ -4,17 +4,7 @@ Blockchain test filler.
 
 from dataclasses import dataclass
 from pprint import pprint
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -86,9 +76,7 @@ class BlockchainTest(BaseTest):
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
             excess_data_gas=env.excess_data_gas,
-            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
-            if env.withdrawals is not None
-            else None,
+            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork) if env.withdrawals is not None else None,
         )
 
         (genesis_rlp, genesis.hash) = b11r.build(
@@ -178,15 +166,12 @@ class BlockchainTest(BaseTest):
                     "parentHash": env.parent_hash(),
                     "miner": env.coinbase,
                     "transactionsRoot": result.get("txRoot"),
-                    "difficulty": str_or_none(
-                        result.get("currentDifficulty"), "0"
-                    ),
+                    "difficulty": str_or_none(result.get("currentDifficulty"), "0"),
                     "number": str(env.number),
                     "gasLimit": str(env.gas_limit),
                     "timestamp": str(env.timestamp),
                     "extraData": block.extra_data
-                    if block.extra_data is not None
-                    and len(block.extra_data) != 0
+                    if block.extra_data is not None and len(block.extra_data) != 0
                     else "0x",
                     "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
                     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501

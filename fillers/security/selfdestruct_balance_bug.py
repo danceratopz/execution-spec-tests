@@ -10,15 +10,7 @@ v1.9.20 > geth >= v1.9.4
 """
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Block,
-    BlockchainTestFiller,
-    TestAddress,
-    Transaction,
-    Yul,
-    to_address,
-)
+from ethereum_test_tools import Account, Block, BlockchainTestFiller, TestAddress, Transaction, Yul, to_address
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
@@ -64,9 +56,7 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller):
         """
     )
 
-    cc_code = Op.SSTORE(
-        0xCA1101, Op.CALL(100000, 0xAA, 0, 0, 0, 0, 0)
-    ) + Op.CALL(100000, 0xAA, 1, 0, 0, 0, 0)
+    cc_code = Op.SSTORE(0xCA1101, Op.CALL(100000, 0xAA, 0, 0, 0, 0, 0)) + Op.CALL(100000, 0xAA, 1, 0, 0, 0, 0)
 
     balance_code = Op.SSTORE(0xBA1AA, Op.BALANCE(0xAA))
 

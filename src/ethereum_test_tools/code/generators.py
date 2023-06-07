@@ -85,10 +85,7 @@ class Initcode(Code):
         # CODECOPY: destinationOffset=0, offset=0, length
         initcode.append(0x39)
         self.execution_gas += (
-            3
-            + (3 * ceiling_division(code_length, 32))
-            + (3 * code_length)
-            + ((code_length * code_length) // 512)
+            3 + (3 * ceiling_division(code_length, 32)) + (3 * code_length) + ((code_length * code_length) // 512)
         )
 
         # RETURN: offset=0, length
@@ -101,15 +98,11 @@ class Initcode(Code):
             if len(pre_padding_bytes) > initcode_length:
                 raise Exception("Invalid specified length for initcode")
 
-            padding_bytes = bytes(
-                [padding_byte] * (initcode_length - len(pre_padding_bytes))
-            )
+            padding_bytes = bytes([padding_byte] * (initcode_length - len(pre_padding_bytes)))
         else:
             padding_bytes = bytes()
 
-        self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(
-            deploy_code_bytes
-        )
+        self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(deploy_code_bytes)
 
         super().__init__(bytecode=pre_padding_bytes + padding_bytes, name=name)
 

@@ -9,11 +9,7 @@ from typing import Any, Dict
 
 import requests
 
-from .reference_spec import (
-    NoLatestKnownVersion,
-    ParseModuleError,
-    ReferenceSpec,
-)
+from .reference_spec import NoLatestKnownVersion, ParseModuleError, ReferenceSpec
 
 
 def _decode_base64_content(encoded_data: str) -> str:
@@ -63,8 +59,7 @@ class GitReferenceSpec(ReferenceSpec):
         if self._latest_spec is not None:
             return self._latest_spec
         response = requests.get(
-            f"https://api.github.com/repos/{self.RepositoryOwner}/"
-            + f"{self.RepositoryName}/contents/{self.SpecPath}"
+            f"https://api.github.com/repos/{self.RepositoryOwner}/" + f"{self.RepositoryName}/contents/{self.SpecPath}"
         )
         if response.status_code != 200:
             return None

@@ -19,11 +19,7 @@ from .forks.forks import (
     MuirGlacier,
     Shanghai,
 )
-from .forks.transition import (
-    BerlinToLondonAt5,
-    MergeToShanghaiAtTime15k,
-    ShanghaiToCancunAtTime15k,
-)
+from .forks.transition import BerlinToLondonAt5, MergeToShanghaiAtTime15k, ShanghaiToCancunAtTime15k
 from .helpers import (
     InvalidForkError,
     forks_from,

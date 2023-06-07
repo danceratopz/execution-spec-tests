@@ -40,9 +40,7 @@ def kzg_to_versioned_hash(
     if isinstance(kzg_commitment, int):
         kzg_commitment = kzg_commitment.to_bytes(48, "big")
     if isinstance(blob_commitment_version_kzg, int):
-        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(
-            1, "big"
-        )
+        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
     return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
@@ -58,13 +56,7 @@ def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
     y = 0 if proof == "correct" else 1
 
     versioned_hash = kzg_to_versioned_hash(kzg_commitment)
-    return (
-        versioned_hash
-        + z.to_bytes(32, "little")
-        + y.to_bytes(32, "little")
-        + kzg_commitment
-        + kzg_proof
-    )
+    return versioned_hash + z.to_bytes(32, "little") + y.to_bytes(32, "little") + kzg_commitment + kzg_proof
 
 
 @pytest.fixture
@@ -201,9 +193,7 @@ def post(
     """
     if proof == "correct":
         expected_gas_usage = (
-            call_gas
-            if call_gas < POINT_EVALUATION_PRECOMPILE_GAS
-            else POINT_EVALUATION_PRECOMPILE_GAS
+            call_gas if call_gas < POINT_EVALUATION_PRECOMPILE_GAS else POINT_EVALUATION_PRECOMPILE_GAS
         )
     else:
         expected_gas_usage = call_gas

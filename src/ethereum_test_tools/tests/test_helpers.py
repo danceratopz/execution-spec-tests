@@ -4,11 +4,7 @@ Test suite for `ethereum_test.helpers` module.
 
 import pytest
 
-from ..common import (
-    compute_create2_address,
-    compute_create_address,
-    to_address,
-)
+from ..common import compute_create2_address, compute_create_address, to_address
 
 
 def test_to_address():
@@ -20,10 +16,7 @@ def test_to_address():
     assert to_address(1) == "0x0000000000000000000000000000000000000001"
     assert to_address("10") == "0x000000000000000000000000000000000000000a"
     assert to_address("0x10") == "0x0000000000000000000000000000000000000010"
-    assert (
-        to_address(2 ** (20 * 8) - 1)
-        == "0xffffffffffffffffffffffffffffffffffffffff"
-    )
+    assert to_address(2 ** (20 * 8) - 1) == "0xffffffffffffffffffffffffffffffffffffffff"
 
 
 @pytest.mark.parametrize(
@@ -58,16 +51,11 @@ def test_to_address():
             3515,
             "0x06012c8cf97bead5deae237070f9587f8e7a266d",
             id="large-nonce-0x-str-address",
-            marks=pytest.mark.xfail(
-                reason="Nonce too large to convert with hard-coded to_bytes "
-                "length of 1"
-            ),
+            marks=pytest.mark.xfail(reason="Nonce too large to convert with hard-coded to_bytes " "length of 1"),
         ),
     ],
 )
-def test_compute_create_address(
-    address: str | int, nonce: int, expected_contract_address: str
-):
+def test_compute_create_address(address: str | int, nonce: int, expected_contract_address: str):
     """
     Test `ethereum_test.helpers.compute_create_address` with some famous
     contracts:
@@ -115,10 +103,7 @@ def test_compute_create_address(
         pytest.param(
             "0x00000000000000000000000000000000deadbeef",
             "0xcafebabe",
-            (
-                "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-            ),
+            ("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
             "0x1d8bfDC5D46DC4f61D6b6115972536eBE6A8854C",
         ),
         pytest.param(
@@ -144,7 +129,4 @@ def test_compute_create2_address(
     """
     salt_as_int = int(salt, 16)
     initcode_as_bytes = bytes.fromhex(initcode[2:])
-    assert (
-        compute_create2_address(address, salt_as_int, initcode_as_bytes)
-        == expected_contract_address.lower()
-    )
+    assert compute_create2_address(address, salt_as_int, initcode_as_bytes) == expected_contract_address.lower()

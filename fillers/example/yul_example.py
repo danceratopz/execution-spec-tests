@@ -4,14 +4,7 @@ Test Yul Source Code Examples
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Environment,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-    Yul,
-)
+from ethereum_test_tools import Account, Environment, StateTestFiller, TestAddress, Transaction, Yul
 
 
 @pytest.mark.valid_from("Berlin")
