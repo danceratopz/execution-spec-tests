@@ -2,17 +2,7 @@
 State test filler.
 """
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -145,9 +135,7 @@ class StateTest(BaseTest):
                 "parentHash": genesis.hash,
                 "miner": env.coinbase,
                 "transactionsRoot": result.get("txRoot"),
-                "difficulty": str_or_none(
-                    env.difficulty, result.get("currentDifficulty")
-                ),
+                "difficulty": str_or_none(env.difficulty, result.get("currentDifficulty")),
                 "number": str(env.number),
                 "gasLimit": str(env.gas_limit),
                 "timestamp": str(env.timestamp),
