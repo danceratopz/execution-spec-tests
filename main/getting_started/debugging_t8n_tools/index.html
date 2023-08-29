@@ -3795,22 +3795,16 @@
 <span class="go">        ├── stdout.txt</span>
 <span class="go">        └── t8n.sh</span>
 </code></pre></div>
-<p>where the directories <code>0</code> and <code>1</code> correspond to the different calls made to the <code>t8n</code> tool executed during the test, in this case (pre-Shanghai state):</p>
+<p>where the directories <code>0</code> and <code>1</code> correspond to the different calls made to the <code>t8n</code> tool executed during the test:</p>
 <ul>
 <li><code>0</code> corresponds to the call used to calculate the state root of the test's initial alloc (which is why it has an empty transaction list).</li>
-<li><code>1</code> corresponds to the call used to execute the first transaction from the test.</li>
+<li><code>1</code> corresponds to the call used to execute the first transaction or block from the test.</li>
 </ul>
-<p>For post-Shanghai forks:</p>
-<ul>
-<li><code>0</code> corresponds to the call used to calculate the <code>stateRoot</code> for the test's initial alloc.</li>
-<li><code>1</code> (optional) corresponds to the call used to calculate the initial <code>withdrawalsRoot</code> for the test's initial alloc if required.</li>
-<li><code>2</code> corresponds to the call used to execute the first transaction from the test.</li>
-</ul>
-<p>Note, there may be more directories present <code>3</code>, <code>4</code>,... if the test executes more transactions.</p>
+<p>Note, there may be more directories present <code>2</code>, <code>3</code>, <code>4</code>,... if the test executes more transactions/blocks.</p>
 <p>Each directory contains files containing information corresponding to the call, for example, the <code>args.py</code> file contains the arguments passed to the <code>t8n</code> command and the <code>output/alloc.json</code> file contains the output of the <code>t8n</code> command's <code>--output-alloc</code> flag.</p>
 <h2 id="the-t8nsh-script">The <code>t8n.sh</code> Script<a class="headerlink" href="#the-t8nsh-script" title="Permanent link">&para;</a></h2>
 <p>The <code>t8n.sh</code> script written to the debug directory can be used to reproduce any call made to the <code>t8n</code> command, for example, if a Besu <code>t8n-server</code> has been started on port <code>3001</code>, the request made by the test for first transaction can be reproduced as:</p>
-<div class="highlight"><pre><span></span><code><span class="go">/tmp/besu/test_access_list_fork_Berlin/1/t8n.sh 3021</span>
+<div class="highlight"><pre><span></span><code><span class="go">/tmp/besu/test_access_list_fork_Berlin/1/t8n.sh 3001</span>
 </code></pre></div>
 <p>which writes the response the from the <code>t8n-server</code> to the console output:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>

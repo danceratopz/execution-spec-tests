@@ -4881,13 +4881,7 @@ implementations.</p>
 <span class="normal">468</span>
 <span class="normal">469</span>
 <span class="normal">470</span>
-<span class="normal">471</span>
-<span class="normal">472</span>
-<span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">TransitionTool</span><span class="p">:</span>
+<span class="normal">471</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">TransitionTool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Transition tool abstract base class which should be inherited by all transition tool</span>
 <span class="sd">    implementations.</span>
@@ -5115,20 +5109,17 @@ implementations.</p>
             <span class="s2">&quot;--input.env=stdin&quot;</span><span class="p">,</span>
             <span class="s2">&quot;--output.result=stdout&quot;</span><span class="p">,</span>
             <span class="s2">&quot;--output.alloc=stdout&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--output.body=stdout&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;--state.fork=</span><span class="si">{</span><span class="n">fork_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;--state.chainid=</span><span class="si">{</span><span class="n">chain_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="sa">f</span><span class="s2">&quot;--state.reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="p">]</span>
-        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-            <span class="c1"># See https://github.com/ethereum/execution-spec-tests/issues/268</span>
-            <span class="c1"># if enabled for ethereum-spec-evm, it will create a file called stdout in the cwd</span>
-            <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--output.body=stdout&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
                     <span class="s2">&quot;`ethereum-spec-evm` tracing is not currently implemented in &quot;</span>
-                    <span class="s2">&quot;execution-test-specs, see &quot;</span>
+                    <span class="s2">&quot;execution-spec-tests, see &quot;</span>
                     <span class="s2">&quot;https://github.com/ethereum/execution-spec-tests/issues/267.&quot;</span>
                 <span class="p">)</span>
             <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
@@ -5157,7 +5148,8 @@ implementations.</p>
             <span class="n">t8n_script</span> <span class="o">=</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
 <span class="s2">                #!/bin/bash</span>
-<span class="s2">                mkdir </span><span class="si">{</span><span class="n">t8n_output_base_dir</span><span class="si">}</span><span class="s2">  # unused if tracing is not enabled</span>
+<span class="s2">                rm -rf </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/t8n.sh.out  # hard-coded to avoid surprises</span>
+<span class="s2">                mkdir </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/t8n.sh.out  # unused if tracing is not enabled</span>
 <span class="s2">                </span><span class="si">{</span><span class="n">t8n_call</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/stdin.txt</span>
 <span class="s2">                &quot;&quot;&quot;</span>
             <span class="p">)</span>
@@ -5181,22 +5173,18 @@ implementations.</p>
 
         <span class="n">output</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-            <span class="n">expected_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">expected_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;body&quot;</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span> <span class="ow">in</span> <span class="n">output</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">expected_outputs</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Malformed t8n output: missing </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expected_outputs</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span> <span class="ow">in</span> <span class="n">output</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;body&quot;</span><span class="p">]]):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Malformed t8n output: missing &#39;alloc&#39;, &#39;result&#39; or &#39;body&#39;.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">debug_output_path</span><span class="p">:</span>
-            <span class="n">output_path_content_map</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;output/alloc.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">],</span>
-                <span class="s2">&quot;output/result.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">],</span>
-            <span class="p">}</span>
-            <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-                <span class="n">output_path_content_map</span><span class="p">[</span><span class="s2">&quot;output/txs.rlp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]</span>
-            <span class="n">dump_files_to_directory</span><span class="p">(</span><span class="n">debug_output_path</span><span class="p">,</span> <span class="n">output_path_content_map</span><span class="p">)</span>
+            <span class="n">dump_files_to_directory</span><span class="p">(</span>
+                <span class="n">debug_output_path</span><span class="p">,</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;output/alloc.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;output/result.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;output/txs.rlp&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">],</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">collect_traces</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">][</span><span class="s2">&quot;receipts&quot;</span><span class="p">],</span> <span class="n">temp_dir</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">)</span>
@@ -6136,13 +6124,7 @@ should be overridden.</p>
 <span class="normal">370</span>
 <span class="normal">371</span>
 <span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
-<span class="normal">377</span>
-<span class="normal">378</span>
-<span class="normal">379</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+<span class="normal">373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">alloc</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
@@ -6176,20 +6158,17 @@ should be overridden.</p>
         <span class="s2">&quot;--input.env=stdin&quot;</span><span class="p">,</span>
         <span class="s2">&quot;--output.result=stdout&quot;</span><span class="p">,</span>
         <span class="s2">&quot;--output.alloc=stdout&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--output.body=stdout&quot;</span><span class="p">,</span>
         <span class="sa">f</span><span class="s2">&quot;--state.fork=</span><span class="si">{</span><span class="n">fork_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="sa">f</span><span class="s2">&quot;--state.chainid=</span><span class="si">{</span><span class="n">chain_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="sa">f</span><span class="s2">&quot;--state.reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
     <span class="p">]</span>
-    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-        <span class="c1"># See https://github.com/ethereum/execution-spec-tests/issues/268</span>
-        <span class="c1"># if enabled for ethereum-spec-evm, it will create a file called stdout in the cwd</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--output.body=stdout&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
                 <span class="s2">&quot;`ethereum-spec-evm` tracing is not currently implemented in &quot;</span>
-                <span class="s2">&quot;execution-test-specs, see &quot;</span>
+                <span class="s2">&quot;execution-spec-tests, see &quot;</span>
                 <span class="s2">&quot;https://github.com/ethereum/execution-spec-tests/issues/267.&quot;</span>
             <span class="p">)</span>
         <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
@@ -6218,7 +6197,8 @@ should be overridden.</p>
         <span class="n">t8n_script</span> <span class="o">=</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
 <span class="s2">            #!/bin/bash</span>
-<span class="s2">            mkdir </span><span class="si">{</span><span class="n">t8n_output_base_dir</span><span class="si">}</span><span class="s2">  # unused if tracing is not enabled</span>
+<span class="s2">            rm -rf </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/t8n.sh.out  # hard-coded to avoid surprises</span>
+<span class="s2">            mkdir </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/t8n.sh.out  # unused if tracing is not enabled</span>
 <span class="s2">            </span><span class="si">{</span><span class="n">t8n_call</span><span class="si">}</span><span class="s2"> &lt; </span><span class="si">{</span><span class="n">debug_output_path</span><span class="si">}</span><span class="s2">/stdin.txt</span>
 <span class="s2">            &quot;&quot;&quot;</span>
         <span class="p">)</span>
@@ -6242,22 +6222,18 @@ should be overridden.</p>
 
     <span class="n">output</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-        <span class="n">expected_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">expected_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;body&quot;</span><span class="p">]</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span> <span class="ow">in</span> <span class="n">output</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">expected_outputs</span><span class="p">]):</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Malformed t8n output: missing </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expected_outputs</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span> <span class="ow">in</span> <span class="n">output</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">,</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;body&quot;</span><span class="p">]]):</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Malformed t8n output: missing &#39;alloc&#39;, &#39;result&#39; or &#39;body&#39;.&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">debug_output_path</span><span class="p">:</span>
-        <span class="n">output_path_content_map</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;output/alloc.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;output/result.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">],</span>
-        <span class="p">}</span>
-        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">default_binary</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">&quot;ethereum-spec-evm&quot;</span><span class="p">:</span>
-            <span class="n">output_path_content_map</span><span class="p">[</span><span class="s2">&quot;output/txs.rlp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">]</span>
-        <span class="n">dump_files_to_directory</span><span class="p">(</span><span class="n">debug_output_path</span><span class="p">,</span> <span class="n">output_path_content_map</span><span class="p">)</span>
+        <span class="n">dump_files_to_directory</span><span class="p">(</span>
+            <span class="n">debug_output_path</span><span class="p">,</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;output/alloc.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;alloc&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;output/result.json&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;output/txs.rlp&quot;</span><span class="p">:</span> <span class="n">output</span><span class="p">[</span><span class="s2">&quot;body&quot;</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">trace</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">collect_traces</span><span class="p">(</span><span class="n">output</span><span class="p">[</span><span class="s2">&quot;result&quot;</span><span class="p">][</span><span class="s2">&quot;receipts&quot;</span><span class="p">],</span> <span class="n">temp_dir</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">)</span>
@@ -6291,7 +6267,13 @@ should be overridden.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/evm_transition_tool/transition_tool.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">381</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
 <span class="normal">382</span>
 <span class="normal">383</span>
 <span class="normal">384</span>
@@ -6326,13 +6308,7 @@ should be overridden.</p>
 <span class="normal">413</span>
 <span class="normal">414</span>
 <span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">calc_state_root</span><span class="p">(</span>
+<span class="normal">416</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">calc_state_root</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">alloc</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -6401,7 +6377,13 @@ should be overridden.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/evm_transition_tool/transition_tool.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">424</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
 <span class="normal">425</span>
 <span class="normal">426</span>
 <span class="normal">427</span>
@@ -6448,13 +6430,7 @@ should be overridden.</p>
 <span class="normal">468</span>
 <span class="normal">469</span>
 <span class="normal">470</span>
-<span class="normal">471</span>
-<span class="normal">472</span>
-<span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">calc_withdrawals_root</span><span class="p">(</span>
+<span class="normal">471</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">calc_withdrawals_root</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">withdrawals</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
