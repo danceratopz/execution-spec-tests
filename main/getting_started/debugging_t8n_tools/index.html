@@ -3762,38 +3762,38 @@
 <span class="go">    --t8n-dump-dir=/tmp/evm-t8n-dump</span>
 </code></pre></div>
 <p>will produce the directory structure:</p>
-<div class="highlight"><pre><span></span><code><span class="go">📁 /tmp/evm-t8n-dump/</span>
-<span class="go">└─╴📁 test_access_list_fork_Berlin</span>
-<span class="go">    ├── 📁 0</span>
-<span class="go">    │   ├── 📄 args.py</span>
-<span class="go">    │   ├── 📁 input</span>
-<span class="go">    │   │   ├── 📄 alloc.json</span>
-<span class="go">    │   │   ├── 📄 env.json</span>
-<span class="go">    │   │   └── 📄 txs.json</span>
-<span class="go">    │   ├── 📁 output</span>
-<span class="go">    │   │   ├── 📄 alloc.json</span>
-<span class="go">    │   │   ├── 📄 result.json</span>
-<span class="go">    │   │   └── 📄 txs.rlp</span>
-<span class="go">    │   ├── 📄 returncode.txt</span>
-<span class="go">    │   ├── 📄 stderr.txt</span>
-<span class="go">    │   ├── 📄 stdin.txt</span>
-<span class="go">    │   ├── 📄 stdout.txt</span>
-<span class="go">    │   └── 📄 t8n.sh</span>
-<span class="go">    └── 📁 1</span>
-<span class="go">        ├── 📄 args.py</span>
-<span class="go">        ├── 📁 input</span>
-<span class="go">        │   ├── 📄 alloc.json</span>
-<span class="go">        │   ├── 📄 env.json</span>
-<span class="go">        │   └── 📄 txs.json</span>
-<span class="go">        ├── 📁 output</span>
-<span class="go">        │   ├── 📄 alloc.json</span>
-<span class="go">        │   ├── 📄 result.json</span>
-<span class="go">        │   └── 📄 txs.rlp</span>
-<span class="go">        ├── 📄 returncode.txt</span>
-<span class="go">        ├── 📄 stderr.txt</span>
-<span class="go">        ├── 📄 stdin.txt</span>
-<span class="go">        ├── 📄 stdout.txt</span>
-<span class="go">        └── 📄 t8n.sh</span>
+<div class="highlight"><pre><span></span><code>📁 /tmp/evm-t8n-dump/
+└─╴📁 test_access_list_fork_Berlin
+    ├── 📁 0
+    │   ├── 📄 args.py
+    │   ├── 📁 input
+    │   │   ├── 📄 alloc.json
+    │   │   ├── 📄 env.json
+    │   │   └── 📄 txs.json
+    │   ├── 📁 output
+    │   │   ├── 📄 alloc.json
+    │   │   ├── 📄 result.json
+    │   │   └── 📄 txs.rlp
+    │   ├── 📄 returncode.txt
+    │   ├── 📄 stderr.txt
+    │   ├── 📄 stdin.txt
+    │   ├── 📄 stdout.txt
+    │   └── 📄 t8n.sh
+    └── 📁 1
+        ├── 📄 args.py
+        ├── 📁 input
+        │   ├── 📄 alloc.json
+        │   ├── 📄 env.json
+        │   └── 📄 txs.json
+        ├── 📁 output
+        │   ├── 📄 alloc.json
+        │   ├── 📄 result.json
+        │   └── 📄 txs.rlp
+        ├── 📄 returncode.txt
+        ├── 📄 stderr.txt
+        ├── 📄 stdin.txt
+        ├── 📄 stdout.txt
+        └── 📄 t8n.sh
 </code></pre></div>
 <p>where the directories <code>0</code> and <code>1</code> correspond to the different calls made to the <code>t8n</code> tool executed during the test:</p>
 <ul>
