@@ -3832,26 +3832,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#pytest_plugins.test_filler.test_filler.BaseTestConfig" class="md-nav__link">
-    BaseTestConfig
-  </a>
-  
-    <nav class="md-nav" aria-label="BaseTestConfig">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="md-nav__link">
-    disable_hive
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#pytest_plugins.test_filler.test_filler.TransitionTool" class="md-nav__link">
     TransitionTool
   </a>
@@ -3964,9 +3944,22 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pytest_plugins.test_filler.test_filler.BaseTestConfig" class="md-nav__link">
+    BaseTestConfig
+  </a>
+  
+    <nav class="md-nav" aria-label="BaseTestConfig">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
-  <a href="#evm_transition_tool.transition_tool.TransitionTool.calc_withdrawals_root" class="md-nav__link">
-    calc_withdrawals_root()
+  <a href="#ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="md-nav__link">
+    disable_hive
   </a>
   
 </li>
@@ -4599,7 +4592,7 @@ writes the generated fixtures to file.</p>
 
   <div class="doc doc-contents ">
       <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="ethereum_test_tools.spec.base_test.BaseTest" href="#pytest_plugins.test_filler.test_filler.BaseTest">BaseTest</a></code></p>
+        Bases: <code><a class="autorefs autorefs-internal" title="ethereum_test_tools.spec.base_test.BaseTest" href="../../ethereum_test_tools/#ethereum_test_tools.BaseTest">BaseTest</a></code></p>
 
   
       <p>Filler type that tests transactions over the period of a single block.</p>
@@ -4771,7 +4764,14 @@ writes the generated fixtures to file.</p>
 <span class="normal">194</span>
 <span class="normal">195</span>
 <span class="normal">196</span>
-<span class="normal">197</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">StateTest</span><span class="p">(</span><span class="n">BaseTest</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Filler type that tests transactions over the period of a single block.</span>
@@ -4799,22 +4799,32 @@ writes the generated fixtures to file.</p>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a genesis block from the state test definition.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">env</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+        <span class="c1"># The genesis environment is similar to the block 1 environment specified by the test</span>
+        <span class="c1"># with some slight differences, so make a copy here</span>
+        <span class="n">genesis_env</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
 
-        <span class="c1"># Remove fields that should not be present in the genesis block.</span>
-        <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Modify values to the proper values for the genesis block</span>
+        <span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">genesis_env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span> <span class="o">=</span> <span class="n">Number</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="p">),</span> <span class="s2">&quot;genesis block number cannot be negative, set state test env.number to 1&quot;</span>
 
-        <span class="n">env</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+        <span class="c1"># Set the fork requirements to the genesis environment in-place</span>
+        <span class="n">genesis_env</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)))</span>
+        <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span>
+            <span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span>
+                <span class="n">block_number</span><span class="o">=</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="n">new_alloc</span><span class="p">,</span> <span class="n">state_root</span> <span class="o">=</span> <span class="n">t8n</span><span class="o">.</span><span class="n">calc_state_root</span><span class="p">(</span>
             <span class="n">alloc</span><span class="o">=</span><span class="n">to_json</span><span class="p">(</span><span class="n">Alloc</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">pre_alloc</span><span class="p">,</span> <span class="n">Alloc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pre</span><span class="p">))),</span>
             <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
             <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
         <span class="p">)</span>
-
         <span class="n">genesis</span> <span class="o">=</span> <span class="n">FixtureHeader</span><span class="p">(</span>
             <span class="n">parent_hash</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
             <span class="n">ommers_hash</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyOmmersRoot</span><span class="p">),</span>
@@ -4823,33 +4833,29 @@ writes the generated fixtures to file.</p>
             <span class="n">transactions_root</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyTrieRoot</span><span class="p">),</span>
             <span class="n">receipt_root</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyTrieRoot</span><span class="p">),</span>
             <span class="n">bloom</span><span class="o">=</span><span class="n">Bloom</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-            <span class="n">difficulty</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="mh">0x20000</span> <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">difficulty</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">env</span><span class="o">.</span><span class="n">difficulty</span><span class="p">),</span>
-            <span class="n">number</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
-            <span class="n">gas_limit</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">gas_limit</span><span class="p">),</span>
+            <span class="n">difficulty</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span>
+                <span class="mh">0x20000</span> <span class="k">if</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">difficulty</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">difficulty</span>
+            <span class="p">),</span>
+            <span class="n">number</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">),</span>
+            <span class="n">gas_limit</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">gas_limit</span><span class="p">),</span>
             <span class="n">gas_used</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">timestamp</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
             <span class="n">extra_data</span><span class="o">=</span><span class="n">Bytes</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span>
             <span class="n">mix_digest</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
             <span class="n">nonce</span><span class="o">=</span><span class="n">HeaderNonce</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-            <span class="n">base_fee</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">base_fee</span><span class="p">),</span>
-            <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
-            <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
+            <span class="n">base_fee</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">base_fee</span><span class="p">),</span>
+            <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
+            <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
             <span class="n">withdrawals_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span>
-                <span class="n">t8n</span><span class="o">.</span><span class="n">calc_withdrawals_root</span><span class="p">(</span>
-                    <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
-                    <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
-                    <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">EmptyTrieRoot</span> <span class="k">if</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
             <span class="p">),</span>
-            <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
+            <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
         <span class="p">)</span>
 
         <span class="n">genesis_rlp</span><span class="p">,</span> <span class="n">genesis</span><span class="o">.</span><span class="n">hash</span> <span class="o">=</span> <span class="n">genesis</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
             <span class="n">txs</span><span class="o">=</span><span class="p">[],</span>
             <span class="n">ommers</span><span class="o">=</span><span class="p">[],</span>
-            <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
+            <span class="n">withdrawals</span><span class="o">=</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">new_alloc</span><span class="p">),</span> <span class="n">genesis_rlp</span><span class="p">,</span> <span class="n">genesis</span>
@@ -4895,6 +4901,7 @@ writes the generated fixtures to file.</p>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">verify_post_alloc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">,</span> <span class="n">alloc</span><span class="p">)</span>
+            <span class="n">verify_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">print_traces</span><span class="p">(</span><span class="n">traces</span><span class="o">=</span><span class="n">t8n</span><span class="o">.</span><span class="n">get_traces</span><span class="p">())</span>
             <span class="k">raise</span> <span class="n">e</span>
@@ -5068,7 +5075,13 @@ writes the generated fixtures to file.</p>
 <span class="normal">111</span>
 <span class="normal">112</span>
 <span class="normal">113</span>
-<span class="normal">114</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_genesis</span><span class="p">(</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_genesis</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
     <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span>
@@ -5076,22 +5089,32 @@ writes the generated fixtures to file.</p>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a genesis block from the state test definition.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">env</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+    <span class="c1"># The genesis environment is similar to the block 1 environment specified by the test</span>
+    <span class="c1"># with some slight differences, so make a copy here</span>
+    <span class="n">genesis_env</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
 
-    <span class="c1"># Remove fields that should not be present in the genesis block.</span>
-    <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Modify values to the proper values for the genesis block</span>
+    <span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">genesis_env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span> <span class="o">=</span> <span class="n">Number</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">assert</span> <span class="p">(</span>
+        <span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+    <span class="p">),</span> <span class="s2">&quot;genesis block number cannot be negative, set state test env.number to 1&quot;</span>
 
-    <span class="n">env</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+    <span class="c1"># Set the fork requirements to the genesis environment in-place</span>
+    <span class="n">genesis_env</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)))</span>
+    <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span>
+        <span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span>
+            <span class="n">block_number</span><span class="o">=</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
 
     <span class="n">new_alloc</span><span class="p">,</span> <span class="n">state_root</span> <span class="o">=</span> <span class="n">t8n</span><span class="o">.</span><span class="n">calc_state_root</span><span class="p">(</span>
         <span class="n">alloc</span><span class="o">=</span><span class="n">to_json</span><span class="p">(</span><span class="n">Alloc</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">pre_alloc</span><span class="p">,</span> <span class="n">Alloc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pre</span><span class="p">))),</span>
         <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
         <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
     <span class="p">)</span>
-
     <span class="n">genesis</span> <span class="o">=</span> <span class="n">FixtureHeader</span><span class="p">(</span>
         <span class="n">parent_hash</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
         <span class="n">ommers_hash</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyOmmersRoot</span><span class="p">),</span>
@@ -5100,33 +5123,29 @@ writes the generated fixtures to file.</p>
         <span class="n">transactions_root</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyTrieRoot</span><span class="p">),</span>
         <span class="n">receipt_root</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="n">EmptyTrieRoot</span><span class="p">),</span>
         <span class="n">bloom</span><span class="o">=</span><span class="n">Bloom</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-        <span class="n">difficulty</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="mh">0x20000</span> <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">difficulty</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">env</span><span class="o">.</span><span class="n">difficulty</span><span class="p">),</span>
-        <span class="n">number</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
-        <span class="n">gas_limit</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">gas_limit</span><span class="p">),</span>
+        <span class="n">difficulty</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span>
+            <span class="mh">0x20000</span> <span class="k">if</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">difficulty</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">difficulty</span>
+        <span class="p">),</span>
+        <span class="n">number</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">number</span><span class="p">),</span>
+        <span class="n">gas_limit</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">gas_limit</span><span class="p">),</span>
         <span class="n">gas_used</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
         <span class="n">timestamp</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
         <span class="n">extra_data</span><span class="o">=</span><span class="n">Bytes</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span>
         <span class="n">mix_digest</span><span class="o">=</span><span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
         <span class="n">nonce</span><span class="o">=</span><span class="n">HeaderNonce</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
-        <span class="n">base_fee</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">base_fee</span><span class="p">),</span>
-        <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
-        <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
+        <span class="n">base_fee</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">base_fee</span><span class="p">),</span>
+        <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
+        <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
         <span class="n">withdrawals_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span>
-            <span class="n">t8n</span><span class="o">.</span><span class="n">calc_withdrawals_root</span><span class="p">(</span>
-                <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
-                <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
-                <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">EmptyTrieRoot</span> <span class="k">if</span> <span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="p">),</span>
-        <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
+        <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
     <span class="p">)</span>
 
     <span class="n">genesis_rlp</span><span class="p">,</span> <span class="n">genesis</span><span class="o">.</span><span class="n">hash</span> <span class="o">=</span> <span class="n">genesis</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
         <span class="n">txs</span><span class="o">=</span><span class="p">[],</span>
         <span class="n">ommers</span><span class="o">=</span><span class="p">[],</span>
-        <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
+        <span class="n">withdrawals</span><span class="o">=</span><span class="n">genesis_env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">new_alloc</span><span class="p">),</span> <span class="n">genesis_rlp</span><span class="p">,</span> <span class="n">genesis</span>
@@ -5159,13 +5178,7 @@ Raises exception on invalid test behavior.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/state_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
@@ -5240,7 +5253,14 @@ Raises exception on invalid test behavior.</p>
 <span class="normal">194</span>
 <span class="normal">195</span>
 <span class="normal">196</span>
-<span class="normal">197</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_blocks</span><span class="p">(</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_blocks</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
     <span class="n">genesis</span><span class="p">:</span> <span class="n">FixtureHeader</span><span class="p">,</span>
@@ -5281,6 +5301,7 @@ Raises exception on invalid test behavior.</p>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="n">verify_post_alloc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">post</span><span class="p">,</span> <span class="n">alloc</span><span class="p">)</span>
+        <span class="n">verify_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="n">print_traces</span><span class="p">(</span><span class="n">traces</span><span class="o">=</span><span class="n">t8n</span><span class="o">.</span><span class="n">get_traces</span><span class="p">())</span>
         <span class="k">raise</span> <span class="n">e</span>
@@ -5359,7 +5380,7 @@ Raises exception on invalid test behavior.</p>
 
   <div class="doc doc-contents ">
       <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="ethereum_test_tools.spec.base_test.BaseTest" href="#pytest_plugins.test_filler.test_filler.BaseTest">BaseTest</a></code></p>
+        Bases: <code><a class="autorefs autorefs-internal" title="ethereum_test_tools.spec.base_test.BaseTest" href="../../ethereum_test_tools/#ethereum_test_tools.BaseTest">BaseTest</a></code></p>
 
   
       <p>Filler type that tests multiple blocks (valid or invalid) in a chain.</p>
@@ -5367,8 +5388,7 @@ Raises exception on invalid test behavior.</p>
 
         <details class="quote">
           <summary>Source code in <code>src/ethereum_test_tools/spec/blockchain_test.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 34</span>
-<span class="normal"> 35</span>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 35</span>
 <span class="normal"> 36</span>
 <span class="normal"> 37</span>
 <span class="normal"> 38</span>
@@ -5653,6 +5673,10 @@ Raises exception on invalid test behavior.</p>
 <span class="sd">        Create a genesis block from the state test definition.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">genesis_environment</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;withdrawals must be empty at genesis&quot;</span>
+        <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">Hash</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">)</span> <span class="o">==</span> <span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;beacon_root must be empty at genesis&quot;</span>
 
         <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)))</span>
         <span class="n">new_alloc</span><span class="p">,</span> <span class="n">state_root</span> <span class="o">=</span> <span class="n">t8n</span><span class="o">.</span><span class="n">calc_state_root</span><span class="p">(</span>
@@ -5680,13 +5704,7 @@ Raises exception on invalid test behavior.</p>
             <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
             <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
             <span class="n">withdrawals_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span>
-                <span class="n">t8n</span><span class="o">.</span><span class="n">calc_withdrawals_root</span><span class="p">(</span>
-                    <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
-                    <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
-                    <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
-                <span class="p">)</span>
-                <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="k">else</span> <span class="kc">None</span>
+                <span class="n">withdrawals_root</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
             <span class="p">),</span>
             <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
         <span class="p">)</span>
@@ -5763,6 +5781,7 @@ Raises exception on invalid test behavior.</p>
             <span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">rejected_txs</span> <span class="o">=</span> <span class="n">verify_transactions</span><span class="p">(</span><span class="n">txs</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+                <span class="n">verify_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">print_traces</span><span class="p">(</span><span class="n">t8n</span><span class="o">.</span><span class="n">get_traces</span><span class="p">())</span>
                 <span class="n">pprint</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
@@ -5917,12 +5936,12 @@ Raises exception on invalid test behavior.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/blockchain_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">46</span>
-<span class="normal">47</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">47</span>
 <span class="normal">48</span>
 <span class="normal">49</span>
 <span class="normal">50</span>
-<span class="normal">51</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">51</span>
+<span class="normal">52</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span> <span class="nf">pytest_parameter_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns the parameter name used to identify this filler in a test.</span>
@@ -5955,8 +5974,7 @@ Raises exception on invalid test behavior.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/blockchain_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 53</span>
-<span class="normal"> 54</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 54</span>
 <span class="normal"> 55</span>
 <span class="normal"> 56</span>
 <span class="normal"> 57</span>
@@ -6007,8 +6025,7 @@ Raises exception on invalid test behavior.</p>
 <span class="normal">102</span>
 <span class="normal">103</span>
 <span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_genesis</span><span class="p">(</span>
+<span class="normal">105</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">make_genesis</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
     <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span>
@@ -6017,6 +6034,10 @@ Raises exception on invalid test behavior.</p>
 <span class="sd">    Create a genesis block from the state test definition.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">env</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">genesis_environment</span><span class="o">.</span><span class="n">set_fork_requirements</span><span class="p">(</span><span class="n">fork</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;withdrawals must be empty at genesis&quot;</span>
+    <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">Hash</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">)</span> <span class="o">==</span> <span class="n">Hash</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;beacon_root must be empty at genesis&quot;</span>
 
     <span class="n">pre_alloc</span> <span class="o">=</span> <span class="n">Alloc</span><span class="p">(</span><span class="n">fork</span><span class="o">.</span><span class="n">pre_allocation</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="n">Number</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)))</span>
     <span class="n">new_alloc</span><span class="p">,</span> <span class="n">state_root</span> <span class="o">=</span> <span class="n">t8n</span><span class="o">.</span><span class="n">calc_state_root</span><span class="p">(</span>
@@ -6044,13 +6065,7 @@ Raises exception on invalid test behavior.</p>
         <span class="n">blob_gas_used</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">blob_gas_used</span><span class="p">),</span>
         <span class="n">excess_blob_gas</span><span class="o">=</span><span class="n">ZeroPaddedHexNumber</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">excess_blob_gas</span><span class="p">),</span>
         <span class="n">withdrawals_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span>
-            <span class="n">t8n</span><span class="o">.</span><span class="n">calc_withdrawals_root</span><span class="p">(</span>
-                <span class="n">withdrawals</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">,</span>
-                <span class="n">fork</span><span class="o">=</span><span class="n">fork</span><span class="p">,</span>
-                <span class="n">debug_output_path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_next_transition_tool_output_path</span><span class="p">(),</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-            <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">withdrawals_root</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span><span class="p">)</span> <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">withdrawals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="p">),</span>
         <span class="n">beacon_root</span><span class="o">=</span><span class="n">Hash</span><span class="o">.</span><span class="n">or_none</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">beacon_root</span><span class="p">),</span>
     <span class="p">)</span>
@@ -6103,7 +6118,8 @@ str: Hash of the head of the chain, only updated if the produced
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/blockchain_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">107</span>
+<span class="normal">108</span>
 <span class="normal">109</span>
 <span class="normal">110</span>
 <span class="normal">111</span>
@@ -6312,6 +6328,7 @@ str: Hash of the head of the chain, only updated if the produced
         <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">rejected_txs</span> <span class="o">=</span> <span class="n">verify_transactions</span><span class="p">(</span><span class="n">txs</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+            <span class="n">verify_result</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">print_traces</span><span class="p">(</span><span class="n">t8n</span><span class="o">.</span><span class="n">get_traces</span><span class="p">())</span>
             <span class="n">pprint</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
@@ -6540,9 +6557,7 @@ Compiles Yul source code into bytecode.</p>
 
         <details class="quote">
           <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 43</span>
-<span class="normal"> 44</span>
-<span class="normal"> 45</span>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 45</span>
 <span class="normal"> 46</span>
 <span class="normal"> 47</span>
 <span class="normal"> 48</span>
@@ -6641,7 +6656,10 @@ Compiles Yul source code into bytecode.</p>
 <span class="normal">141</span>
 <span class="normal">142</span>
 <span class="normal">143</span>
-<span class="normal">144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Yul</span><span class="p">(</span><span class="n">SupportsBytes</span><span class="p">,</span> <span class="n">Sized</span><span class="p">):</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">Yul</span><span class="p">(</span><span class="n">SupportsBytes</span><span class="p">,</span> <span class="n">Sized</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Yul compiler.</span>
 <span class="sd">    Compiles Yul source code into bytecode.</span>
@@ -6722,7 +6740,7 @@ Compiles Yul source code into bytecode.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Code</span><span class="p">(</span><span class="n">to_bytes</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="o">+</span> <span class="nb">bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Version</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return solc&#39;s version string</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -6732,17 +6750,18 @@ Compiles Yul source code into bytecode.</p>
             <span class="n">stderr</span><span class="o">=</span><span class="n">PIPE</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">solc_output</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">version_pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;0\.\d+\.\d+\+\S+&quot;</span>
-        <span class="n">solc_version_string</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">version_pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;Version: (.*)&quot;</span>
+        <span class="n">solc_version_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">solc_output</span><span class="p">:</span>
-            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">version_pattern</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
-                <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">version_pattern</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+                <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
                 <span class="k">break</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">solc_version_string</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unable to determine solc version.&quot;</span><span class="p">)</span>
-            <span class="n">solc_version_string</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
-        <span class="k">return</span> <span class="n">solc_version_string</span>
+            <span class="k">return</span> <span class="n">Version</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Sanitize</span>
+        <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">solc_version_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;g++&quot;</span><span class="p">,</span> <span class="s2">&quot;gpp&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">solc_version_string</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
         </details>
 
@@ -6772,9 +6791,7 @@ Compiles Yul source code into bytecode.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 72</span>
-<span class="normal"> 73</span>
-<span class="normal"> 74</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 74</span>
 <span class="normal"> 75</span>
 <span class="normal"> 76</span>
 <span class="normal"> 77</span>
@@ -6804,7 +6821,9 @@ Compiles Yul source code into bytecode.</p>
 <span class="normal">101</span>
 <span class="normal">102</span>
 <span class="normal">103</span>
-<span class="normal">104</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__bytes__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__bytes__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Assembles using `solc --assemble`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6864,11 +6883,11 @@ Compiles Yul source code into bytecode.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
 <span class="normal">109</span>
-<span class="normal">110</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the length of the Yul bytecode.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6900,11 +6919,11 @@ Compiles Yul source code into bytecode.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
 <span class="normal">115</span>
-<span class="normal">116</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="n">SupportsBytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Code</span><span class="p">:</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="n">SupportsBytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Code</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Adds two code objects together, by converting both to bytes first.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6936,11 +6955,11 @@ Compiles Yul source code into bytecode.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
 <span class="normal">121</span>
-<span class="normal">122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="n">SupportsBytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Code</span><span class="p">:</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="n">SupportsBytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Code</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Adds two code objects together, by converting both to bytes first.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6972,9 +6991,7 @@ Compiles Yul source code into bytecode.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/code/yul.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">126</span>
 <span class="normal">127</span>
 <span class="normal">128</span>
 <span class="normal">129</span>
@@ -6992,7 +7009,10 @@ Compiles Yul source code into bytecode.</p>
 <span class="normal">141</span>
 <span class="normal">142</span>
 <span class="normal">143</span>
-<span class="normal">144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Version</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return solc&#39;s version string</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -7002,110 +7022,20 @@ Compiles Yul source code into bytecode.</p>
         <span class="n">stderr</span><span class="o">=</span><span class="n">PIPE</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">solc_output</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">version_pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;0\.\d+\.\d+\+\S+&quot;</span>
-    <span class="n">solc_version_string</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">version_pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;Version: (.*)&quot;</span>
+    <span class="n">solc_version_string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
     <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">solc_output</span><span class="p">:</span>
-        <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">version_pattern</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
-            <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="o">:=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">version_pattern</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+            <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
             <span class="k">break</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">solc_version_string</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Unable to determine solc version.&quot;</span><span class="p">)</span>
-        <span class="n">solc_version_string</span> <span class="o">=</span> <span class="s2">&quot;unknown&quot;</span>
-    <span class="k">return</span> <span class="n">solc_version_string</span>
+        <span class="k">return</span> <span class="n">Version</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># Sanitize</span>
+    <span class="n">solc_version_string</span> <span class="o">=</span> <span class="n">solc_version_string</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;g++&quot;</span><span class="p">,</span> <span class="s2">&quot;gpp&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">solc_version_string</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
       </details>
-  </div>
-
-</div>
-
-
-
-
-  </div>
-
-  </div>
-
-</div>
-
-
-
-
-
-
-<div class="doc doc-object doc-class">
-
-
-
-<h2 id="pytest_plugins.test_filler.test_filler.BaseTestConfig" class="doc doc-heading">
-        <code>BaseTestConfig</code>
-
-  
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
-  </span>
-
-<a href="#pytest_plugins.test_filler.test_filler.BaseTestConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-  <div class="doc doc-contents ">
-
-  
-      <p>General configuration that all tests must support.</p>
-
-
-        <details class="quote">
-          <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span> <span class="nc">BaseTestConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    General configuration that all tests must support.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">disable_hive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Disable any hive-related properties that the output could contain.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-</code></pre></div></td></tr></table></div>
-        </details>
-
-  
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h3 id="ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">disable_hive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></code>
-  
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
-      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
-  </span>
-
-<a href="#ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="headerlink" title="Permanent link">&para;</a></h3>
-
-
-  <div class="doc doc-contents ">
-  
-      <p>Disable any hive-related properties that the output could contain.</p>
   </div>
 
 </div>
@@ -7496,62 +7426,7 @@ implementations.</p>
 <span class="normal">413</span>
 <span class="normal">414</span>
 <span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span>
-<span class="normal">425</span>
-<span class="normal">426</span>
-<span class="normal">427</span>
-<span class="normal">428</span>
-<span class="normal">429</span>
-<span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span>
-<span class="normal">456</span>
-<span class="normal">457</span>
-<span class="normal">458</span>
-<span class="normal">459</span>
-<span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
-<span class="normal">463</span>
-<span class="normal">464</span>
-<span class="normal">465</span>
-<span class="normal">466</span>
-<span class="normal">467</span>
-<span class="normal">468</span>
-<span class="normal">469</span>
-<span class="normal">470</span>
-<span class="normal">471</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">TransitionTool</span><span class="p">:</span>
+<span class="normal">416</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">TransitionTool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Transition tool abstract base class which should be inherited by all transition tool</span>
 <span class="sd">    implementations.</span>
@@ -7904,61 +7779,6 @@ implementations.</p>
         <span class="k">if</span> <span class="n">state_root</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state_root</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Unable to calculate state root&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">new_alloc</span><span class="p">,</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span><span class="n">state_root</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
-
-    <span class="k">def</span> <span class="nf">calc_withdrawals_root</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">withdrawals</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Calculate the state root for the given `alloc`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="c1"># Optimize returning the empty root immediately</span>
-            <span class="k">return</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span>
-                <span class="s2">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">env</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;currentCoinbase&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0000000000000000000000000000000000000000&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;currentDifficulty&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;currentGasLimit&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;currentNumber&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;currentTimestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;withdrawals&quot;</span><span class="p">:</span> <span class="n">withdrawals</span><span class="p">,</span>
-        <span class="p">}</span>
-
-        <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_base_fee_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentBaseFee&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;7&quot;</span>
-
-        <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_prev_randao_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentRandom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
-
-        <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_excess_blob_gas_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentExcessBlobGas&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
-
-        <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_beacon_root_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-            <span class="n">env</span><span class="p">[</span>
-                <span class="s2">&quot;parentBeaconBlockRoot&quot;</span>
-            <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;</span>
-
-        <span class="n">_</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-            <span class="n">alloc</span><span class="o">=</span><span class="p">{},</span>
-            <span class="n">txs</span><span class="o">=</span><span class="p">[],</span>
-            <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
-            <span class="n">fork_name</span><span class="o">=</span><span class="n">fork</span><span class="o">.</span><span class="n">fork</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
-            <span class="n">debug_output_path</span><span class="o">=</span><span class="n">debug_output_path</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">withdrawals_root</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;withdrawalsRoot&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">withdrawals_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-                <span class="s2">&quot;Unable to calculate withdrawals root: no value returned from transition tool&quot;</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">withdrawals_root</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-                <span class="s2">&quot;Unable to calculate withdrawals root: &quot;</span>
-                <span class="o">+</span> <span class="s2">&quot;incorrect type returned from transition tool: &quot;</span>
-                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">withdrawals_root</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span>
-        <span class="k">return</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span><span class="n">withdrawals_root</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
 </code></pre></div></td></tr></table></div>
         </details>
 
@@ -9029,133 +8849,90 @@ should be overridden.</p>
 
 
 
+  </div>
+
+  </div>
+
+</div>
 
 
-<div class="doc doc-object doc-function">
 
 
 
-<h3 id="evm_transition_tool.transition_tool.TransitionTool.calc_withdrawals_root" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">calc_withdrawals_root</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">withdrawals</span><span class="p">,</span> <span class="n">fork</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
 
-<a href="#evm_transition_tool.transition_tool.TransitionTool.calc_withdrawals_root" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="pytest_plugins.test_filler.test_filler.BaseTestConfig" class="doc doc-heading">
+        <code>BaseTestConfig</code>
+
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#pytest_plugins.test_filler.test_filler.BaseTestConfig" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+  <div class="doc doc-contents ">
+
+  
+      <p>General configuration that all tests must support.</p>
+
+
+        <details class="quote">
+          <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span>
+<span class="normal">92</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BaseTestConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    General configuration that all tests must support.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">disable_hive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Disable any hive-related properties that the output could contain.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div></td></tr></table></div>
+        </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">disable_hive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+  </span>
+
+<a href="#ethereum_test_tools.spec.base_test.BaseTestConfig.disable_hive" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
   <div class="doc doc-contents ">
   
-      <p>Calculate the state root for the given <code>alloc</code>.</p>
-
-      <details class="quote">
-        <summary>Source code in <code>src/evm_transition_tool/transition_tool.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span>
-<span class="normal">425</span>
-<span class="normal">426</span>
-<span class="normal">427</span>
-<span class="normal">428</span>
-<span class="normal">429</span>
-<span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
-<span class="normal">453</span>
-<span class="normal">454</span>
-<span class="normal">455</span>
-<span class="normal">456</span>
-<span class="normal">457</span>
-<span class="normal">458</span>
-<span class="normal">459</span>
-<span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
-<span class="normal">463</span>
-<span class="normal">464</span>
-<span class="normal">465</span>
-<span class="normal">466</span>
-<span class="normal">467</span>
-<span class="normal">468</span>
-<span class="normal">469</span>
-<span class="normal">470</span>
-<span class="normal">471</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">calc_withdrawals_root</span><span class="p">(</span>
-    <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">withdrawals</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">fork</span><span class="p">:</span> <span class="n">Fork</span><span class="p">,</span> <span class="n">debug_output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculate the state root for the given `alloc`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">withdrawals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Optimize returning the empty root immediately</span>
-        <span class="k">return</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span>
-            <span class="s2">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;</span>
-        <span class="p">)</span>
-
-    <span class="n">env</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;currentCoinbase&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0000000000000000000000000000000000000000&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;currentDifficulty&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;currentGasLimit&quot;</span><span class="p">:</span> <span class="s2">&quot;0x0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;currentNumber&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;currentTimestamp&quot;</span><span class="p">:</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;withdrawals&quot;</span><span class="p">:</span> <span class="n">withdrawals</span><span class="p">,</span>
-    <span class="p">}</span>
-
-    <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_base_fee_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentBaseFee&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;7&quot;</span>
-
-    <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_prev_randao_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentRandom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
-
-    <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_excess_blob_gas_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="n">env</span><span class="p">[</span><span class="s2">&quot;currentExcessBlobGas&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
-
-    <span class="k">if</span> <span class="n">fork</span><span class="o">.</span><span class="n">header_beacon_root_required</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="n">env</span><span class="p">[</span>
-            <span class="s2">&quot;parentBeaconBlockRoot&quot;</span>
-        <span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;</span>
-
-    <span class="n">_</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-        <span class="n">alloc</span><span class="o">=</span><span class="p">{},</span>
-        <span class="n">txs</span><span class="o">=</span><span class="p">[],</span>
-        <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
-        <span class="n">fork_name</span><span class="o">=</span><span class="n">fork</span><span class="o">.</span><span class="n">fork</span><span class="p">(</span><span class="n">block_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">timestamp</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
-        <span class="n">debug_output_path</span><span class="o">=</span><span class="n">debug_output_path</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">withdrawals_root</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;withdrawalsRoot&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">withdrawals_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-            <span class="s2">&quot;Unable to calculate withdrawals root: no value returned from transition tool&quot;</span>
-        <span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">withdrawals_root</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-            <span class="s2">&quot;Unable to calculate withdrawals root: &quot;</span>
-            <span class="o">+</span> <span class="s2">&quot;incorrect type returned from transition tool: &quot;</span>
-            <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">withdrawals_root</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="nb">bytes</span><span class="o">.</span><span class="n">fromhex</span><span class="p">(</span><span class="n">withdrawals_root</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
-</code></pre></div></td></tr></table></div>
-      </details>
+      <p>Disable any hive-related properties that the output could contain.</p>
   </div>
 
 </div>
@@ -9198,28 +8975,7 @@ blockchain.</p>
 
         <details class="quote">
           <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 74</span>
-<span class="normal"> 75</span>
-<span class="normal"> 76</span>
-<span class="normal"> 77</span>
-<span class="normal"> 78</span>
-<span class="normal"> 79</span>
-<span class="normal"> 80</span>
-<span class="normal"> 81</span>
-<span class="normal"> 82</span>
-<span class="normal"> 83</span>
-<span class="normal"> 84</span>
-<span class="normal"> 85</span>
-<span class="normal"> 86</span>
-<span class="normal"> 87</span>
-<span class="normal"> 88</span>
-<span class="normal"> 89</span>
-<span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 95</span>
 <span class="normal"> 96</span>
 <span class="normal"> 97</span>
 <span class="normal"> 98</span>
@@ -9257,7 +9013,28 @@ blockchain.</p>
 <span class="normal">130</span>
 <span class="normal">131</span>
 <span class="normal">132</span>
-<span class="normal">133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">BaseTest</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Represents a base Ethereum test which must return a genesis and a</span>
@@ -9350,16 +9127,16 @@ blockchain.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span>
-<span class="normal">92</span>
-<span class="normal">93</span>
-<span class="normal">94</span>
-<span class="normal">95</span>
-<span class="normal">96</span>
-<span class="normal">97</span>
-<span class="normal">98</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span> <span class="nf">make_genesis</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
@@ -9400,20 +9177,20 @@ blockchain.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span> <span class="nf">make_blocks</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
@@ -9460,14 +9237,14 @@ spec type as filler for the test.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="nd">@abstractmethod</span>
 <span class="k">def</span> <span class="nf">pytest_parameter_name</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -9502,16 +9279,16 @@ spec type as filler for the test.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/spec/base_test.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_next_transition_tool_output_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">get_next_transition_tool_output_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns the path to the next transition tool output file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -11146,18 +10923,7 @@ more readable test ids for the generated tests.</p>
 
         <details class="quote">
           <summary>Source code in <code>src/ethereum_test_tools/common/types.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2619</span>
-<span class="normal">2620</span>
-<span class="normal">2621</span>
-<span class="normal">2622</span>
-<span class="normal">2623</span>
-<span class="normal">2624</span>
-<span class="normal">2625</span>
-<span class="normal">2626</span>
-<span class="normal">2627</span>
-<span class="normal">2628</span>
-<span class="normal">2629</span>
-<span class="normal">2630</span>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2630</span>
 <span class="normal">2631</span>
 <span class="normal">2632</span>
 <span class="normal">2633</span>
@@ -11244,7 +11010,18 @@ more readable test ids for the generated tests.</p>
 <span class="normal">2714</span>
 <span class="normal">2715</span>
 <span class="normal">2716</span>
-<span class="normal">2717</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">2717</span>
+<span class="normal">2718</span>
+<span class="normal">2719</span>
+<span class="normal">2720</span>
+<span class="normal">2721</span>
+<span class="normal">2722</span>
+<span class="normal">2723</span>
+<span class="normal">2724</span>
+<span class="normal">2725</span>
+<span class="normal">2726</span>
+<span class="normal">2727</span>
+<span class="normal">2728</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">Fixture</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Cross-client compatible Ethereum test fixture.</span>
@@ -11372,11 +11149,11 @@ more readable test ids for the generated tests.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/common/types.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2693</span>
-<span class="normal">2694</span>
-<span class="normal">2695</span>
-<span class="normal">2696</span>
-<span class="normal">2697</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2704</span>
+<span class="normal">2705</span>
+<span class="normal">2706</span>
+<span class="normal">2707</span>
+<span class="normal">2708</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Post init hook to convert to JSON after instantiation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -11408,13 +11185,13 @@ more readable test ids for the generated tests.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/common/types.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2699</span>
-<span class="normal">2700</span>
-<span class="normal">2701</span>
-<span class="normal">2702</span>
-<span class="normal">2703</span>
-<span class="normal">2704</span>
-<span class="normal">2705</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2710</span>
+<span class="normal">2711</span>
+<span class="normal">2712</span>
+<span class="normal">2713</span>
+<span class="normal">2714</span>
+<span class="normal">2715</span>
+<span class="normal">2716</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert to JSON.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -11448,17 +11225,17 @@ more readable test ids for the generated tests.</p>
 
       <details class="quote">
         <summary>Source code in <code>src/ethereum_test_tools/common/types.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2707</span>
-<span class="normal">2708</span>
-<span class="normal">2709</span>
-<span class="normal">2710</span>
-<span class="normal">2711</span>
-<span class="normal">2712</span>
-<span class="normal">2713</span>
-<span class="normal">2714</span>
-<span class="normal">2715</span>
-<span class="normal">2716</span>
-<span class="normal">2717</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">fill_info</span><span class="p">(</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2718</span>
+<span class="normal">2719</span>
+<span class="normal">2720</span>
+<span class="normal">2721</span>
+<span class="normal">2722</span>
+<span class="normal">2723</span>
+<span class="normal">2724</span>
+<span class="normal">2725</span>
+<span class="normal">2726</span>
+<span class="normal">2727</span>
+<span class="normal">2728</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">fill_info</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">t8n</span><span class="p">:</span> <span class="n">TransitionTool</span><span class="p">,</span>
     <span class="n">ref_spec</span><span class="p">:</span> <span class="n">ReferenceSpec</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
