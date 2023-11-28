@@ -385,6 +385,8 @@ def get_fixture_collection_scope(fixture_name, config):
 
     See: https://docs.pytest.org/en/stable/how-to/fixtures.html#dynamic-scope
     """
+    if config.getoption("output") == "stdout":
+        return "session"
     if config.getoption("single_fixture_per_file"):
         return "function"
     return "module"
