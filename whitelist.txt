@@ -314,6 +314,7 @@ hookwrapper
 IEXEC
 IGNORECASE
 inifile
+isatty
 iterdir
 ljust
 makepyfile
@@ -348,6 +349,7 @@ substring
 substrings
 tf
 testdir
+teststatus
 tmpdir
 tryfirst
 trylast

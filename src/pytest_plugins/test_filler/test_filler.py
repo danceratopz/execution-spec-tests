@@ -8,6 +8,7 @@ writes the generated fixtures to file.
 import json
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Type, Union
@@ -192,6 +193,20 @@ def pytest_report_header(config, start_path):
     t8n = TransitionTool.from_binary_path(binary_path=binary_path)
     solc_version_string = Yul("", binary=config.getoption("solc_bin")).version()
     return [f"{t8n.version()}, solc version {solc_version_string}"]
+
+
+def pytest_report_teststatus(report, config):
+    """
+    Disable test session progress report if we're writing the JSON fixtures to
+    stdout to be read by a consume command on stdin. I.e., don't write this
+    type of output to the console:
+
+    ```text
+    ...x...
+    ```
+    """
+    if config.getoption("output") == "stdout":
+        return report.outcome, "", report.outcome.upper()
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -446,6 +461,11 @@ class FixtureCollector:
         """
         Dumps all collected fixtures to their respective files.
         """
+        if self.output_dir == "stdout":
+            for fixture_path, fixtures in self.all_fixtures.items():
+                json.dump(fixtures, sys.stdout, indent=4)
+                print()  # For newline separation between fixtures
+            return
         os.makedirs(self.output_dir, exist_ok=True)
         for fixture_path, fixtures in self.all_fixtures.items():
             if not self.flat_output:
