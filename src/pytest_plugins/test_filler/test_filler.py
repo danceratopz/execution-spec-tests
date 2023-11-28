@@ -462,9 +462,10 @@ class FixtureCollector:
         Dumps all collected fixtures to their respective files.
         """
         if self.output_dir == "stdout":
-            for fixture_path, fixtures in self.all_fixtures.items():
-                json.dump(fixtures, sys.stdout, indent=4)
-                print()  # For newline separation between fixtures
+            combined_fixtures = {
+                k: v for fixture in self.all_fixtures.values() for k, v in fixture.items()
+            }
+            json.dump(combined_fixtures, sys.stdout, indent=4)
             return
         os.makedirs(self.output_dir, exist_ok=True)
         for fixture_path, fixtures in self.all_fixtures.items():
