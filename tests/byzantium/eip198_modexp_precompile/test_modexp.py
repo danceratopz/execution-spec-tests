@@ -42,17 +42,6 @@ class ModExpInput:
     modulus: str
     extra_data: str = ""
 
-    def __repr__(self):
-        """
-        Used in the pytest id, if an id is not provided via `pytest.param`.
-        """
-        if self.extra_data:
-            return (
-                f"ModExpInput_base_{self.base}-exponent_{self.exponent}-"
-                f"modulus_{self.modulus}-extra_data_{self.extra_data}"
-            )
-        return f"ModExpInput_base_{self.base}-exponent_{self.exponent}-modulus_{self.modulus}"
-
     def create_modexp_tx_data(self):
         """
         Generates input for the MODEXP precompile.
@@ -98,63 +87,65 @@ class ExpectedOutput:
     call_return_code: str
     returned_data: str
 
-    def __repr__(self):
-        """
-        Used in the pytest id, if an id is not provided via `pytest.param`.
-        """
-        return (
-            f"ExpectedOutput_call_return_code_{self.call_return_code}-"
-            f"returned_data_{self.returned_data}"
-        )
-
 
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
     ["input", "output"],
     [
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus="02"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x01"),
+            id="EIP-198-custom-case-1",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus="0002"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x0001"),
+            id="EIP-198-custom-case-2",
         ),
-        (
+        pytest.param(
             ModExpInput(base="00", exponent="00", modulus="02"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x01"),
+            id="EIP-198-custom-case-3",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="01", modulus="02"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x00"),
+            id="EIP-198-custom-case-4",
         ),
-        (
+        pytest.param(
             ModExpInput(base="01", exponent="01", modulus="02"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x01"),
+            id="EIP-198-custom-case-5",
         ),
-        (
+        pytest.param(
             ModExpInput(base="02", exponent="01", modulus="03"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x02"),
+            id="EIP-198-custom-case-6",
         ),
-        (
+        pytest.param(
             ModExpInput(base="02", exponent="02", modulus="05"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x04"),
+            id="EIP-198-custom-case-7",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus=""),
             ExpectedOutput(call_return_code="0x01", returned_data="0x"),
+            id="EIP-198-custom-case-8",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus="00"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x00"),
+            id="EIP-198-custom-case-9",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus="01"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x00"),
+            id="EIP-198-custom-case-10",
         ),
-        (
+        pytest.param(
             ModExpInput(base="", exponent="", modulus="0001"),
             ExpectedOutput(call_return_code="0x01", returned_data="0x0000"),
+            id="EIP-198-custom-case-11",
         ),
         # Test cases from EIP 198 (Note: the cases where the call goes out-of-gas and the
         # final test case are not yet tested)
@@ -225,7 +216,6 @@ class ExpectedOutput:
             id="EIP-198-case5-raw-input",
         ),
     ],
-    ids=lambda param: param.__repr__(),  # only required to remove parameter names (input/output)
 )
 def test_modexp(state_test: StateTestFiller, input: ModExpInput, output: ExpectedOutput):
     """
