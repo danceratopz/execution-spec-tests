@@ -364,6 +364,7 @@ def yul(fork: Fork, request):
         assert solc_target_fork in get_forks_with_solc_support(request.config.solc_version)
     else:
         solc_target_fork = get_closest_fork_with_solc_support(fork, request.config.solc_version)
+        assert solc_target_fork is not None, "No fork supports provided solc version."
         if request.config.getoption("verbose") >= 1:
             warnings.warn(f"Compiling Yul for {solc_target_fork}, not {fork}.")
 
