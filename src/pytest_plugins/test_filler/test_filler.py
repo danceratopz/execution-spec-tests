@@ -353,7 +353,7 @@ def yul(fork: Fork, request):
     Test cases can override the default value by specifying a fixed version
     with the @pytest.mark.compile_yul_with(FORK) marker.
     """
-    solc_target_fork: Fork
+    solc_target_fork: Fork | None
     marker = request.node.get_closest_marker("compile_yul_with")
     if marker:
         if not marker.args[0]:
