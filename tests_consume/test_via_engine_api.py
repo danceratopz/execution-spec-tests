@@ -5,9 +5,10 @@ the appropriate VALID/INVALID responses.
 
 Implemented using the pytest framework as a pytest plugin.
 """
+
 import io
 import json
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Type, Union
 
 import pytest
 from hive.client import Client, ClientType
@@ -26,8 +27,9 @@ from ethereum_test_forks import (  # noqa: F401
 )
 from ethereum_test_tools.common.json import load_dataclass_from_json
 from ethereum_test_tools.common.types import Account
+from ethereum_test_tools.consume.engine.types import EngineCancun, EngineParis, EngineShanghai
 from ethereum_test_tools.rpc import EngineRPC, EthRPC
-from ethereum_test_tools.spec.blockchain.types import FixtureBlock, FixtureEngineNewPayload
+from ethereum_test_tools.spec.blockchain.types import FixtureBlock
 from pytest_plugins.consume.consume import TestCase
 from pytest_plugins.consume_via_engine_api.client_fork_ruleset import client_fork_ruleset
 
@@ -113,7 +115,9 @@ def eth_rpc(client: Client) -> EngineRPC:
 
 
 @pytest.fixture(scope="function")
-def engine_new_payloads(test_case: TestCase) -> List[FixtureEngineNewPayload]:
+def engine_new_payloads(
+    test_case: TestCase,
+) -> List[Union[EngineShanghai, EngineCancun, EngineParis]]:
     """
     Execution payloads extracted from each block within the test case fixture.
     Sent to the client under test using the `engine_newPayloadVX` method from the Engine API.
@@ -122,29 +126,41 @@ def engine_new_payloads(test_case: TestCase) -> List[FixtureEngineNewPayload]:
         load_dataclass_from_json(FixtureBlock, block.get("rlp_decoded", block))
         for block in test_case.fixture.blocks
     ]
-
-    fixture_fork = test_case.fixture.fork
-    if fixture_fork == "Merge":
-        # TODO: Handle mapping following rename of Merge fork
+    if test_case.fixture.fork == "Merge":
         fork = Paris
     else:
-        fork = globals()[fixture_fork]
-    return [
-        FixtureEngineNewPayload.from_fixture_header(
-            fork,
-            block.block_header,
-            block.txs,
-            block.withdrawals,
-            True,  # TODO: Add support for InvalidFixtureBlock
-            error_code=None,
+        fork = globals()[test_case.fixture.fork]
+    engine_new_payloads = []
+    for fixture_block in fixture_blocks:
+        version = fork.engine_new_payload_version(
+            fixture_block.block_header.number, fixture_block.block_header.timestamp  # type: ignore
         )
-        for block in fixture_blocks
-    ]
+        PayloadClass: Type[
+            Union[
+                EngineParis.NewPayloadV1,
+                EngineShanghai.NewPayloadV2,
+                EngineCancun.NewPayloadV3,
+            ]
+        ]
+        if version == 1:
+            PayloadClass = EngineParis.NewPayloadV1
+        elif version == 2:
+            PayloadClass = EngineShanghai.NewPayloadV2
+        elif version == 3:
+            PayloadClass = EngineCancun.NewPayloadV3
+        else:
+            ValueError(f"Unexpected payload version: {version}")
+            continue
+        engine_new_payloads.append(PayloadClass.from_fixture_block(fixture_block))
+
+    return engine_new_payloads
 
 
 def test_via_engine_api(
     test_case: TestCase,
-    engine_new_payloads: List[FixtureEngineNewPayload],
+    engine_new_payloads: List[
+        Union[EngineShanghai.NewPayloadV2, EngineCancun.NewPayloadV3, EngineParis.NewPayloadV1]
+    ],
     engine_rpc: EngineRPC,
     eth_rpc: EthRPC,
 ):
@@ -168,9 +184,9 @@ def test_via_engine_api(
         # ), f"unexpected status: {payload_response} "
 
     forkchoice_response = engine_rpc.forkchoice_updated(
-        forkchoice_state={"headBlockHash": engine_new_payloads[-1].payload.hash},
+        forkchoice_state={"headBlockHash": engine_new_payloads[-1].execution_payload.block_hash},
         payload_attributes=None,
-        version=engine_new_payloads[-1].version,
+        version=engine_new_payloads[-1].version(),
     )
     assert (
         forkchoice_response["payloadStatus"]["status"] == "VALID"

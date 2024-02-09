@@ -2,10 +2,9 @@
 Ethereum `engine_X` JSON-RPC Engine API methods used within EEST based hive simulators.
 """
 
-from typing import Dict
+from typing import Dict, Union
 
-from ..common.json import to_json
-from ..spec.blockchain.types import FixtureEngineNewPayload
+from ..consume.engine.types import EngineCancun, EngineParis, EngineShanghai
 from .base_rpc import BaseRPC
 
 ForkchoiceStateV1 = Dict
@@ -20,34 +19,18 @@ class EngineRPC(BaseRPC):
 
     def new_payload(
         self,
-        engine_new_payload: FixtureEngineNewPayload,
+        engine_new_payload: Union[
+            EngineCancun.NewPayloadV3,
+            EngineShanghai.NewPayloadV2,
+            EngineParis.NewPayloadV1,
+        ],
     ):
         """
         `engine_newPayloadVX`: Attempts to execute the given payload on an execution client.
         """
-        version = engine_new_payload.version
-        engine_new_payload_json = to_json(engine_new_payload)
-        formatted_json = [
-            engine_new_payload_json.get("executionPayload", None),
-        ]
-        if version >= 3:
-            formatted_json.append(engine_new_payload_json.get("expectedBlobVersionedHashes", None))
-            formatted_json.append(engine_new_payload_json.get("parentBeaconBlockRoot", None))
-
-        # TODO: This is a temporary workaround to convert remove zero padding from withdrawals
-        if "withdrawals" in formatted_json[0] and len(formatted_json[0]["withdrawals"]) > 0:
-            withdrawals = formatted_json[0]["withdrawals"]
-            formatted_json[0]["withdrawals"] = [
-                {
-                    "index": hex(int(withdrawal["index"], 16)),
-                    "validatorIndex": hex(int(withdrawal["validatorIndex"], 16)),
-                    "address": withdrawal["address"],
-                    "amount": hex(int(withdrawal["amount"], 16)),
-                }
-                for withdrawal in withdrawals
-            ]
-
-        return self.post_request(f"engine_newPayloadV{version}", formatted_json)
+        return self.post_request(
+            f"engine_newPayloadV{engine_new_payload.version()}", engine_new_payload.to_json_rpc()
+        )
 
     def forkchoice_updated(
         self,

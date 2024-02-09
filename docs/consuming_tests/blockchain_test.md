@@ -110,7 +110,7 @@ Root hash of the transactions trie.
 
 Root hash of the receipts trie.
 
-#### - `bloom`: [`Bloom`](./common_types.md#bloom)
+#### - `logsBloom`: [`Bloom`](./common_types.md#bloom)
 
 Bloom filter composed of the logs of all the transactions in the block.
 

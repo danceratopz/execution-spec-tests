@@ -1,6 +1,7 @@
 """
 StateTest types
 """
+
 import json
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -64,7 +65,7 @@ class FixtureEnvironment:
             cast_type=ZeroPaddedHexNumber,
         ),
     )
-    base_fee: Optional[NumberConvertible] = field(
+    base_fee_per_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentBaseFee",

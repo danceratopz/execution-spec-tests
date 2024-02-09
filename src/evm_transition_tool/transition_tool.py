@@ -1,6 +1,7 @@
 """
 Transition tool abstract class.
 """
+
 import json
 import os
 import shutil
@@ -576,7 +577,7 @@ class TransitionTool:
             "currentTimestamp": "0",
         }
 
-        if fork.header_base_fee_required(0, 0):
+        if fork.header_base_fee_per_gas_required(0, 0):
             env["currentBaseFee"] = "7"
 
         if fork.header_prev_randao_required(0, 0):

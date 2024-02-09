@@ -20,6 +20,7 @@ note: Adding a new test
     cases.
 
 """  # noqa: E501
+
 import itertools
 from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
@@ -108,29 +109,31 @@ def block_fee_per_blob_gas(  # noqa: D103
 
 
 @pytest.fixture
-def block_base_fee() -> int:  # noqa: D103
+def block_base_fee_per_gas() -> int:  # noqa: D103
     return 7
 
 
 @pytest.fixture
 def env(  # noqa: D103
     parent_excess_blob_gas: int,
-    block_base_fee: int,
+    block_base_fee_per_gas: int,
     parent_blobs: int,
 ) -> Environment:
     return Environment(
-        excess_blob_gas=parent_excess_blob_gas
-        if parent_blobs == 0
-        else parent_excess_blob_gas + Spec.TARGET_BLOB_GAS_PER_BLOCK,
-        base_fee=block_base_fee,
+        excess_blob_gas=(
+            parent_excess_blob_gas
+            if parent_blobs == 0
+            else parent_excess_blob_gas + Spec.TARGET_BLOB_GAS_PER_BLOCK
+        ),
+        base_fee_per_gas=block_base_fee_per_gas,
     )
 
 
 @pytest.fixture
 def tx_max_fee_per_gas(  # noqa: D103
-    block_base_fee: int,
+    block_base_fee_per_gas: int,
 ) -> int:
-    return block_base_fee
+    return block_base_fee_per_gas
 
 
 @pytest.fixture
@@ -340,9 +343,7 @@ BLOB_GAS_COST_INCREASES = [
         2**32,  # blob gas cost 2^32
         2**64 // Spec.GAS_PER_BLOB,  # Data tx wei cost 2^64
         2**64,  # blob gas cost 2^64
-        (
-            120_000_000 * (10**18) // Spec.GAS_PER_BLOB
-        ),  # Data tx wei is current total Ether supply
+        120_000_000 * (10**18) // Spec.GAS_PER_BLOB,  # Data tx wei is current total Ether supply
     ]
 ]
 

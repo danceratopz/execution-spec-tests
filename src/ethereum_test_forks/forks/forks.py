@@ -1,6 +1,7 @@
 """
 All Ethereum fork class definitions.
 """
+
 from typing import List, Mapping, Optional
 
 from semver import Version
@@ -40,7 +41,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         return Version.parse("0.8.20")
 
     @classmethod
-    def header_base_fee_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_base_fee_per_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         At genesis, header must not contain base fee
         """
@@ -258,7 +259,7 @@ class London(Berlin):
     """
 
     @classmethod
-    def header_base_fee_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_base_fee_per_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Base Fee is required starting from London.
         """

@@ -54,22 +54,22 @@ class Header:
     coinbase: Optional[FixedSizeBytesConvertible] = None
     state_root: Optional[FixedSizeBytesConvertible] = None
     transactions_root: Optional[FixedSizeBytesConvertible] = None
-    receipt_root: Optional[FixedSizeBytesConvertible] = None
-    bloom: Optional[FixedSizeBytesConvertible] = None
+    receipts_root: Optional[FixedSizeBytesConvertible] = None
+    logs_bloom: Optional[FixedSizeBytesConvertible] = None
     difficulty: Optional[NumberConvertible] = None
     number: Optional[NumberConvertible] = None
     gas_limit: Optional[NumberConvertible] = None
     gas_used: Optional[NumberConvertible] = None
     timestamp: Optional[NumberConvertible] = None
     extra_data: Optional[BytesConvertible] = None
-    mix_digest: Optional[FixedSizeBytesConvertible] = None
+    prev_randao: Optional[FixedSizeBytesConvertible] = None
     nonce: Optional[FixedSizeBytesConvertible] = None
-    base_fee: Optional[NumberConvertible | Removable] = None
+    base_fee_per_gas: Optional[NumberConvertible | Removable] = None
     withdrawals_root: Optional[FixedSizeBytesConvertible | Removable] = None
     blob_gas_used: Optional[NumberConvertible | Removable] = None
     excess_blob_gas: Optional[NumberConvertible | Removable] = None
     beacon_root: Optional[FixedSizeBytesConvertible | Removable] = None
-    hash: Optional[FixedSizeBytesConvertible] = None
+    block_hash: Optional[FixedSizeBytesConvertible] = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -220,19 +220,19 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="transactionsTrie"),
     )
-    receipt_root: Hash = header_field(
+    receipts_root: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
             source_transition_tool="receiptsRoot",
         ),
         json_encoder=JSONEncoder.Field(name="receiptTrie"),
     )
-    bloom: Bloom = header_field(
+    logs_bloom: Bloom = header_field(
         source=HeaderFieldSource(
             parse_type=Bloom,
             source_transition_tool="logsBloom",
         ),
-        json_encoder=JSONEncoder.Field(),
+        json_encoder=JSONEncoder.Field(name="bloom"),
     )
     difficulty: int = header_field(
         source=HeaderFieldSource(
@@ -279,7 +279,7 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="extraData"),
     )
-    mix_digest: Hash = header_field(
+    prev_randao: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
             source_environment="prev_randao",
@@ -294,13 +294,13 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(),
     )
-    base_fee: Optional[int] = header_field(
+    base_fee_per_gas: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
             parse_type=Number,
-            fork_requirement_check="header_base_fee_required",
+            fork_requirement_check="header_base_fee_per_gas_required",
             source_transition_tool="currentBaseFee",
-            source_environment="base_fee",
+            source_environment="base_fee_per_gas",
         ),
         json_encoder=JSONEncoder.Field(name="baseFeePerGas", cast_type=ZeroPaddedHexNumber),
     )
@@ -340,12 +340,12 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="parentBeaconBlockRoot"),
     )
-    hash: Optional[Hash] = header_field(
+    block_hash: Optional[Hash] = header_field(
         default=None,
         source=HeaderFieldSource(
             required=False,
         ),
-        json_encoder=JSONEncoder.Field(),
+        json_encoder=JSONEncoder.Field(name="hash"),
     )
 
     @classmethod
@@ -464,19 +464,19 @@ class FixtureHeader:
             self.coinbase,
             self.state_root,
             self.transactions_root,
-            self.receipt_root,
-            self.bloom,
+            self.receipts_root,
+            self.logs_bloom,
             Uint(int(self.difficulty)),
             Uint(int(self.number)),
             Uint(int(self.gas_limit)),
             Uint(int(self.gas_used)),
             Uint(int(self.timestamp)),
             self.extra_data,
-            self.mix_digest,
+            self.prev_randao,
             self.nonce,
         ]
-        if self.base_fee is not None:
-            header.append(Uint(int(self.base_fee)))
+        if self.base_fee_per_gas is not None:
+            header.append(Uint(int(self.base_fee_per_gas)))
         if self.withdrawals_root is not None:
             header.append(self.withdrawals_root)
         if self.blob_gas_used is not None:
@@ -563,8 +563,8 @@ class Block(Header):
         new_env.gas_limit = (
             self.gas_limit if self.gas_limit is not None else environment_default.gas_limit
         )
-        if not isinstance(self.base_fee, Removable):
-            new_env.base_fee = self.base_fee
+        if not isinstance(self.base_fee_per_gas, Removable):
+            new_env.base_fee_per_gas = self.base_fee_per_gas
         new_env.withdrawals = self.withdrawals
         if not isinstance(self.excess_blob_gas, Removable):
             new_env.excess_blob_gas = self.excess_blob_gas
@@ -642,22 +642,22 @@ class FixtureExecutionPayload(FixtureHeader):
             name="feeRecipient",
         )
     )
-    receipt_root: Hash = field(
+    receipts_root: Hash = field(
         json_encoder=JSONEncoder.Field(
             name="receiptsRoot",
         ),
     )
-    bloom: Bloom = field(
+    logs_bloom: Bloom = field(
         json_encoder=JSONEncoder.Field(
             name="logsBloom",
         )
     )
-    mix_digest: Hash = field(
+    prev_randao: Hash = field(
         json_encoder=JSONEncoder.Field(
             name="prevRandao",
         ),
     )
-    hash: Optional[Hash] = field(
+    block_hash: Optional[Hash] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="blockHash",
@@ -674,7 +674,7 @@ class FixtureExecutionPayload(FixtureHeader):
     gas_limit: int = field(json_encoder=JSONEncoder.Field(name="gasLimit", cast_type=HexNumber))
     gas_used: int = field(json_encoder=JSONEncoder.Field(name="gasUsed", cast_type=HexNumber))
     timestamp: int = field(json_encoder=JSONEncoder.Field(cast_type=HexNumber))
-    base_fee: Optional[int] = field(
+    base_fee_per_gas: Optional[int] = field(
         default=None,
         json_encoder=JSONEncoder.Field(name="baseFeePerGas", cast_type=HexNumber),
     )
@@ -1003,7 +1003,7 @@ class FixtureBlock:
             cast_type=Number,
         ),
     )
-    txs: List[Transaction] = field(
+    transactions: List[Transaction] = field(
         json_encoder=JSONEncoder.Field(
             name="transactions",
             cast_type=lambda txs: [FixtureTransaction.from_transaction(tx) for tx in txs],

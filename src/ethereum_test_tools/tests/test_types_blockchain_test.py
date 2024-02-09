@@ -1,6 +1,7 @@
 """
 Test the blockchain test types.
 """
+
 from dataclasses import replace
 
 import pytest
@@ -14,21 +15,21 @@ fixture_header_ones = FixtureHeader(
     coinbase=Address(1),
     state_root=Hash(1),
     transactions_root=Hash(1),
-    receipt_root=Hash(1),
-    bloom=Bloom(1),
+    receipts_root=Hash(1),
+    logs_bloom=Bloom(1),
     difficulty=1,
     number=1,
     gas_limit=1,
     gas_used=1,
     timestamp=1,
     extra_data=Bytes([1]),
-    mix_digest=Hash(1),
+    prev_randao=Hash(1),
     nonce=HeaderNonce(1),
-    base_fee=1,
+    base_fee_per_gas=1,
     withdrawals_root=Hash(1),
     blob_gas_used=1,
     excess_blob_gas=1,
-    hash=Hash(1),
+    block_hash=Hash(1),
 )
 
 
@@ -73,26 +74,28 @@ fixture_header_ones = FixtureHeader(
         ),
         pytest.param(
             fixture_header_ones,
-            Header(bloom="0x100"),
-            replace(fixture_header_ones, bloom=Bloom("0x100")),
-            id="bloom_as_str",
+            Header(logs_bloom="0x100"),
+            replace(fixture_header_ones, logs_bloom=Bloom("0x100")),
+            id="logs_bloom_as_str",
         ),
         pytest.param(
             fixture_header_ones,
-            Header(bloom=100),
-            replace(fixture_header_ones, bloom=Bloom(100)),
-            id="bloom_as_int",
+            Header(logs_bloom=100),
+            replace(fixture_header_ones, logs_bloom=Bloom(100)),
+            id="logs_bloom_as_int",
         ),
         pytest.param(
             fixture_header_ones,
-            Header(bloom=Hash(100)),
-            replace(fixture_header_ones, bloom=Bloom(100)),
-            id="bloom_as_hash",
+            Header(logs_bloom=Hash(100)),
+            replace(fixture_header_ones, logs_bloom=Bloom(100)),
+            id="logs_bloom_as_hash",
         ),
         pytest.param(
             fixture_header_ones,
-            Header(state_root="0x100", bloom=Hash(200), difficulty=300),
-            replace(fixture_header_ones, state_root=Hash(0x100), bloom=Bloom(200), difficulty=300),
+            Header(state_root="0x100", logs_bloom=Hash(200), difficulty=300),
+            replace(
+                fixture_header_ones, state_root=Hash(0x100), logs_bloom=Bloom(200), difficulty=300
+            ),
             id="multiple_fields",
         ),
     ],

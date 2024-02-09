@@ -15,7 +15,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
 @pytest.mark.parametrize("t8n", [GethTransitionTool()])
 @pytest.mark.parametrize("fork", [London, Istanbul])
 @pytest.mark.parametrize(
-    "alloc,base_fee,hash",
+    "alloc,base_fee_per_gas,hash",
     [
         (
             {
@@ -68,14 +68,14 @@ def test_calc_state_root(  # noqa: D103
     t8n: TransitionTool,
     fork: Fork,
     alloc: Dict,
-    base_fee: int | None,
+    base_fee_per_gas: int | None,
     hash: bytes,
 ) -> None:
     class TestEnv:
-        base_fee: int | None
+        base_fee_per_gas: int | None
 
     env = TestEnv()
-    env.base_fee = base_fee
+    env.base_fee_per_gas = base_fee_per_gas
     assert t8n.calc_state_root(alloc=alloc, fork=fork)[1].startswith(hash)
 
 

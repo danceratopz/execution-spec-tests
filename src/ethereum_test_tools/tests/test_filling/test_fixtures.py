@@ -89,8 +89,8 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     assert isinstance(fixture, BlockchainFixture)
     assert fixture.genesis is not None
 
-    assert fixture.genesis.hash is not None
-    assert fixture.genesis.hash.startswith(hash)
+    assert fixture.genesis.block_hash is not None
+    assert fixture.genesis.block_hash.startswith(hash)
 
 
 @pytest.mark.parametrize(
@@ -450,7 +450,7 @@ class TestFillBlockchainValidTxs:
     @pytest.fixture
     def genesis_environment(self):  # noqa: D102
         return Environment(
-            base_fee=1000,
+            base_fee_per_gas=1000,
             coinbase="0xba5e000000000000000000000000000000000000",
         )
 
@@ -544,7 +544,7 @@ class TestFillBlockchainValidTxs:
         assert updated_block_header.difficulty == new_difficulty
         assert updated_block_header.state_root == new_state_root
         assert updated_block_header.transactions_root == Hash(new_transactions_root)
-        assert updated_block_header.hash == block.block_header.hash  # type: ignore
+        assert updated_block_header.block_hash == block.block_header.block_hash  # type: ignore
         assert isinstance(updated_block_header.transactions_root, Hash)
 
 
@@ -851,7 +851,7 @@ def test_fill_blockchain_invalid_txs(
 
     # We start genesis with a baseFee of 1000
     genesis_environment = Environment(
-        base_fee=1000,
+        base_fee_per_gas=1000,
         coinbase="0xba5e000000000000000000000000000000000000",
     )
 

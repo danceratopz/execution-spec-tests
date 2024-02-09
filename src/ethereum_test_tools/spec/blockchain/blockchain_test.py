@@ -5,7 +5,7 @@ Ethereum blockchain test spec definition and filler.
 from copy import copy
 from dataclasses import dataclass, field, replace
 from pprint import pprint
-from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type, Union
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
@@ -28,13 +28,7 @@ from ...common import (
 )
 from ...common.constants import EmptyOmmersRoot
 from ...common.json import to_json
-from ..base.base_test import (
-    BaseFixture,
-    BaseTest,
-    verify_post_alloc,
-    verify_result,
-    verify_transactions,
-)
+from ..base.base_test import BaseTest, verify_post_alloc, verify_result, verify_transactions
 from ..debugging import print_traces
 from .types import (
     Block,
@@ -54,13 +48,13 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
     return Environment(
         parent_difficulty=parent.difficulty,
         parent_timestamp=parent.timestamp,
-        parent_base_fee=parent.base_fee,
+        parent_base_fee_per_gas=parent.base_fee_per_gas,
         parent_blob_gas_used=parent.blob_gas_used,
         parent_excess_blob_gas=parent.excess_blob_gas,
         parent_gas_used=parent.gas_used,
         parent_gas_limit=parent.gas_limit,
         parent_ommers_hash=parent.ommers_hash,
-        block_hashes={parent.number: parent.hash if parent.hash is not None else 0},
+        block_hashes={parent.number: parent.block_hash if parent.block_hash is not None else 0},
     )
 
 
@@ -71,13 +65,15 @@ def apply_new_parent(env: Environment, new_parent: FixtureHeader) -> "Environmen
     env = copy(env)
     env.parent_difficulty = new_parent.difficulty
     env.parent_timestamp = new_parent.timestamp
-    env.parent_base_fee = new_parent.base_fee
+    env.parent_base_fee_per_gas = new_parent.base_fee_per_gas
     env.parent_blob_gas_used = new_parent.blob_gas_used
     env.parent_excess_blob_gas = new_parent.excess_blob_gas
     env.parent_gas_used = new_parent.gas_used
     env.parent_gas_limit = new_parent.gas_limit
     env.parent_ommers_hash = new_parent.ommers_hash
-    env.block_hashes[new_parent.number] = new_parent.hash if new_parent.hash is not None else 0
+    env.block_hashes[new_parent.number] = (
+        new_parent.block_hash if new_parent.block_hash is not None else 0
+    )
     return env
 
 
@@ -153,17 +149,17 @@ class BlockchainTest(BaseTest):
             coinbase=Address(0),
             state_root=Hash(state_root),
             transactions_root=Hash(EmptyTrieRoot),
-            receipt_root=Hash(EmptyTrieRoot),
-            bloom=Bloom(0),
+            receipts_root=Hash(EmptyTrieRoot),
+            logs_bloom=Bloom(0),
             difficulty=ZeroPaddedHexNumber(0x20000 if env.difficulty is None else env.difficulty),
             number=0,
             gas_limit=ZeroPaddedHexNumber(env.gas_limit),
             gas_used=0,
             timestamp=0,
             extra_data=Bytes([0]),
-            mix_digest=Hash(0),
+            prev_randao=Hash(0),
             nonce=HeaderNonce(0),
-            base_fee=ZeroPaddedHexNumber.or_none(env.base_fee),
+            base_fee_per_gas=ZeroPaddedHexNumber.or_none(env.base_fee_per_gas),
             blob_gas_used=ZeroPaddedHexNumber.or_none(env.blob_gas_used),
             excess_blob_gas=ZeroPaddedHexNumber.or_none(env.excess_blob_gas),
             withdrawals_root=Hash.or_none(
@@ -172,7 +168,7 @@ class BlockchainTest(BaseTest):
             beacon_root=Hash.or_none(env.beacon_root),
         )
 
-        genesis_rlp, genesis.hash = genesis.build(
+        genesis_rlp, genesis.block_hash = genesis.build(
             txs=[],
             ommers=[],
             withdrawals=env.withdrawals,
@@ -276,7 +272,7 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = header.join(block.rlp_modifier)
 
-        rlp, header.hash = header.build(
+        rlp, header.block_hash = header.build(
             txs=txs,
             ommers=[],
             withdrawals=env.withdrawals,
@@ -319,7 +315,7 @@ class BlockchainTest(BaseTest):
 
         alloc = to_json(pre)
         env = environment_from_parent_header(genesis)
-        head = genesis.hash if genesis.hash is not None else Hash(0)
+        head = genesis.block_hash if genesis.block_hash is not None else Hash(0)
 
         for block in self.blocks:
             if block.rlp is None:
@@ -338,7 +334,7 @@ class BlockchainTest(BaseTest):
                     rlp=rlp,
                     block_header=header,
                     block_number=Number(header.number),
-                    txs=txs,
+                    transactions=txs,
                     ommers=[],
                     withdrawals=new_env.withdrawals,
                 )
@@ -347,7 +343,7 @@ class BlockchainTest(BaseTest):
                     # Update env, alloc and last block hash for the next block.
                     alloc = new_alloc
                     env = apply_new_parent(new_env, header)
-                    head = header.hash if header.hash is not None else Hash(0)
+                    head = header.block_hash if header.block_hash is not None else Hash(0)
                 else:
                     fixture_blocks.append(
                         InvalidFixtureBlock(
@@ -435,7 +431,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> BaseFixture:
+    ) -> Union[Fixture, HiveFixture]:
         """
         Generate the BlockchainTest fixture.
         """

@@ -689,7 +689,7 @@ def withdrawals_root(withdrawals: List[Withdrawal]) -> bytes:
     return t.root_hash
 
 
-DEFAULT_BASE_FEE = 7
+DEFAULT_BASE_FEE_PER_GAS = 7
 
 
 @dataclass(kw_only=True)
@@ -764,7 +764,7 @@ class Environment:
             to_json=True,
         ),
     )
-    base_fee: Optional[NumberConvertible] = field(
+    base_fee_per_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentBaseFee",
@@ -785,7 +785,7 @@ class Environment:
             cast_type=Number,
         ),
     )
-    parent_base_fee: Optional[NumberConvertible] = field(
+    parent_base_fee_per_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="parentBaseFee",
@@ -880,11 +880,11 @@ class Environment:
             res.withdrawals = []
 
         if (
-            fork.header_base_fee_required(number, timestamp)
-            and res.base_fee is None
-            and res.parent_base_fee is None
+            fork.header_base_fee_per_gas_required(number, timestamp)
+            and res.base_fee_per_gas is None
+            and res.parent_base_fee_per_gas is None
         ):
-            res.base_fee = DEFAULT_BASE_FEE
+            res.base_fee_per_gas = DEFAULT_BASE_FEE_PER_GAS
 
         if fork.header_zero_difficulty_required(number, timestamp):
             res.difficulty = 0

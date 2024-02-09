@@ -1,6 +1,7 @@
 """
 Base JSON-RPC class and helper functions for EEST based hive simulators.
 """
+
 import time
 
 import requests
