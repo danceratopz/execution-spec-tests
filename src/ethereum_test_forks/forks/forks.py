@@ -491,7 +491,8 @@ class Prague(Cancun):
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
         """
-        Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110
+        Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110, and
+        the exits contract for EIP-7002.
         """
         DEPOSIT_CONTRACT_TREE_DEPTH = 32
 
@@ -508,7 +509,20 @@ class Prague(Cancun):
                     "nonce": 1,
                     "code": f.read(),
                     "storage": storage,
-                }
+                },
+                0x229F8EDAF3C9C852E29034AF9EA3CE16B50AE017: {
+                    "nonce": 1,
+                    "code": "0x3373fffffffffffffffffffffffffffffffffffffffe146090573615156028575f"
+                    "545f5260205ff35b36603014156101525760115f54600182026001905f5b5f82111560595781"
+                    "019083028483029004916001019190603e565b90939004341061015257600154600101600155"
+                    "600354806003026004013381556001015f3581556001016020359055600101600355005b6003"
+                    "546002548082038060101160a4575060105b5f5b81811461010c578260030281600302600401"
+                    "01805490600101805490600101549160601b8160a01c17836044025260601b8160a01c178260"
+                    "44026020015273ffffffff000000000000000000000000000000001660601b81604402604001"
+                    "5260010160a6565b910180921461011e5790600255610129565b90505f6002555f6003555b5f"
+                    "546001546002828201116101405750505f610146565b01600290035b5f555f6001556044025f"
+                    "f35b5f5ffd",
+                },
             }
         return new_allocation | super(Prague, cls).pre_allocation_blockchain()
 
