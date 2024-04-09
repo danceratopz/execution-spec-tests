@@ -26,6 +26,7 @@ blockhash
 blocknum
 blocktest
 bls
+bls12
 blueswen
 boolean
 br
@@ -123,6 +124,16 @@ formatOnSave
 formatter
 fromhex
 func
+fp
+fp2
+g1
+g1add
+g1mul
+g1msm
+g2
+g2add
+g2mul
+g2msm
 gaslimit
 gasprice
 GeneralStateTestsFiller
@@ -192,6 +203,7 @@ metaclass
 Misspelled words:
 mkdocs
 mkdocstrings
+msm
 mypy
 namespace
 nav
