@@ -5,6 +5,7 @@ Test suite for `ethereum_test` module.
 from typing import Any, Dict, List
 
 import pytest
+from pydantic import TypeAdapter
 
 from ..common import (
     AccessList,
@@ -18,7 +19,7 @@ from ..common import (
 from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
 from ..common.constants import TestPrivateKey
 from ..common.json import to_json
-from ..common.types import Alloc
+from ..common.types import Alloc, Deposit, Requests
 from ..exceptions import BlockException, TransactionException
 from ..spec.blockchain.types import (
     FixtureBlockBase,
@@ -1658,3 +1659,42 @@ def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
     Test that withdrawals_root returns the expected hash.
     """
     assert Withdrawal.list_root(withdrawals) == expected_root
+
+
+@pytest.mark.parametrize(
+    ["json_str", "type_adapter", "expected"],
+    [
+        pytest.param(
+            """
+            [
+                {
+                    "type": "0x00",
+                    "pubkey": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+                    "withdrawalCredentials": "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    "amount": "0x1234",
+                    "signature": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+                    "index": "0x5678"
+                }
+            ]
+            """,  # noqa: E501
+            TypeAdapter(Requests),
+            Requests(
+                root=[
+                    Deposit(
+                        pubkey=1,
+                        withdrawal_credentials=2,
+                        amount=0x1234,
+                        signature=3,
+                        index=0x5678,
+                    ),
+                ]
+            ),
+            id="requests_1",
+        ),
+    ],
+)
+def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
+    """
+    Test that parsing the given JSON string returns the expected object.
+    """
+    assert type_adapter.validate_json(json_str) == expected

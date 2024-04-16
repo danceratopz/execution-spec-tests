@@ -10,7 +10,7 @@ from pydantic import Field
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Alloc, EmptyTrieRoot, Environment, Hash, Transaction, Withdrawal
+from ...common import Alloc, EmptyTrieRoot, Environment, Hash, Requests, Transaction, Withdrawal
 from ...common.constants import EmptyOmmersRoot
 from ...common.json import to_json
 from ...common.types import TransitionToolOutput
@@ -24,6 +24,7 @@ from .types import (
     FixtureBlockBase,
     FixtureEngineNewPayload,
     FixtureHeader,
+    FixtureRequests,
     FixtureTransaction,
     FixtureWithdrawal,
     HiveFixture,
@@ -156,7 +157,7 @@ class BlockchainTest(BaseTest):
         previous_env: Environment,
         previous_alloc: Alloc,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureHeader, List[Transaction], Alloc, Environment]:
+    ) -> Tuple[FixtureHeader, List[Transaction], Requests | None, Alloc, Environment]:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
         """
@@ -236,6 +237,9 @@ class BlockchainTest(BaseTest):
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
             extra_data=block.extra_data if block.extra_data is not None else b"",
+            requests_root=transition_tool_output.result.requests.trie_root()
+            if transition_tool_output.result.requests
+            else None,
             fork=fork,
         )
 
@@ -248,7 +252,13 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = header.join(block.rlp_modifier)
 
-        return header, txs, transition_tool_output.alloc, env
+        return (
+            header,
+            txs,
+            transition_tool_output.result.requests,
+            transition_tool_output.alloc,
+            env,
+        )
 
     def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
         """
@@ -292,7 +302,7 @@ class BlockchainTest(BaseTest):
                 # This is the most common case, the RLP needs to be constructed
                 # based on the transactions to be included in the block.
                 # Set the environment according to the block to execute.
-                header, txs, new_alloc, new_env = self.generate_block_data(
+                header, txs, requests, new_alloc, new_env = self.generate_block_data(
                     t8n=t8n,
                     fork=fork,
                     block=block,
@@ -306,6 +316,9 @@ class BlockchainTest(BaseTest):
                     ommers=[],
                     withdrawals=[FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
                     if new_env.withdrawals is not None
+                    else None,
+                    requests=FixtureRequests.from_requests(requests)
+                    if requests is not None
                     else None,
                 ).with_rlp(txs=txs)
                 if block.exception is None:
@@ -366,7 +379,7 @@ class BlockchainTest(BaseTest):
         head_hash = genesis.header.block_hash
 
         for block in self.blocks:
-            header, txs, new_alloc, new_env = self.generate_block_data(
+            header, txs, requests, new_alloc, new_env = self.generate_block_data(
                 t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
             )
             if block.rlp is None:
@@ -376,6 +389,7 @@ class BlockchainTest(BaseTest):
                         header=header,
                         transactions=txs,
                         withdrawals=new_env.withdrawals,
+                        requests=requests,
                         validation_error=block.exception,
                         error_code=block.engine_api_error_code,
                     )
@@ -402,7 +416,7 @@ class BlockchainTest(BaseTest):
             # Most clients require the header to start the sync process, so we create an empty
             # block on top of the last block of the test to send it as new payload and trigger the
             # sync process.
-            sync_header, _, _, _ = self.generate_block_data(
+            sync_header, _, requests, _, _ = self.generate_block_data(
                 t8n=t8n,
                 fork=fork,
                 block=Block(),
@@ -415,6 +429,7 @@ class BlockchainTest(BaseTest):
                 header=sync_header,
                 transactions=[],
                 withdrawals=[],
+                requests=requests,
                 validation_error=None,
                 error_code=None,
             )

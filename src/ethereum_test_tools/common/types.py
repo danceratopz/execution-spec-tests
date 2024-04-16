@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from functools import cached_property
 from itertools import count
 from typing import (
+    Annotated,
     Any,
     ClassVar,
     Dict,
     Generic,
     Iterator,
     List,
+    Literal,
     Sequence,
     SupportsBytes,
     Type,
@@ -45,6 +47,8 @@ from ..exceptions import TransactionException
 from .base_types import (
     Address,
     Bloom,
+    BLSPublicKey,
+    BLSSignature,
     Bytes,
     Hash,
     HashInt,
@@ -1240,6 +1244,60 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         ]
 
 
+class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
+    """
+    Generic deposit type used as a parent for Deposit and FixtureDeposit.
+    """
+
+    pubkey: BLSPublicKey
+    withdrawal_credentials: Hash
+    amount: NumberBoundTypeVar
+    signature: BLSSignature
+    index: NumberBoundTypeVar
+
+    ty: Literal["0x00"] = Field("0x00", alias="type")
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the deposit's attributes as a list of serializable elements.
+        """
+        return [
+            self.pubkey,
+            self.withdrawal_credentials,
+            Uint(self.amount),
+            self.signature,
+            Uint(self.index),
+        ]
+
+
+class Deposit(DepositGeneric[HexNumber]):
+    """
+    Deposit type
+    """
+
+    pass
+
+
+class Requests(RootModel[List[Deposit]]):
+    """
+    Requests for the transition tool.
+    """
+
+    root: List[Annotated[Deposit, Field(discriminator="ty")]] = Field(default_factory=list)
+
+    def trie_root(self) -> Hash:
+        """
+        Returns the root hash of the requests.
+        """
+        t = HexaryTrie(db={})
+        for i, d in enumerate(self.root):
+            t.set(
+                eth_rlp.encode(Uint(i)),
+                bytes.fromhex(d.ty[2:]) + eth_rlp.encode(d.to_serializable_list()),
+            )
+        return Hash(t.root_hash)
+
+
 # TODO: Move to other file
 # Transition tool models
 
@@ -1294,6 +1352,7 @@ class Result(CamelModel):
     withdrawals_root: Hash | None = None
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
+    requests: Requests | None = None
 
 
 class TransitionToolOutput(CamelModel):

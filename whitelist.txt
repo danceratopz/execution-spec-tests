@@ -225,6 +225,7 @@ prepend
 PrevRandao
 prestateTracer
 programmatically
+pubkey
 px
 py
 pydantic

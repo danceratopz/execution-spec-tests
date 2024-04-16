@@ -8,7 +8,7 @@ from typing import Annotated, Any, ClassVar, Dict, List, Literal, get_args, get_
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
-from pydantic import ConfigDict, Field, PlainSerializer, computed_field
+from pydantic import ConfigDict, Field, PlainSerializer, RootModel, computed_field
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats
@@ -27,8 +27,11 @@ from ...common.constants import EmptyOmmersRoot, EngineAPIError
 from ...common.types import (
     Alloc,
     CamelModel,
+    Deposit,
+    DepositGeneric,
     Environment,
     Removable,
+    Requests,
     Transaction,
     TransactionFixtureConverter,
     TransactionGeneric,
@@ -64,6 +67,7 @@ class Header(CamelModel):
     blob_gas_used: Removable | HexNumber | None = None
     excess_blob_gas: Removable | HexNumber | None = None
     parent_beacon_block_root: Removable | Hash | None = None
+    requests_root: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -164,6 +168,7 @@ class FixtureHeader(CamelModel):
     parent_beacon_block_root: Annotated[Hash, HeaderForkRequirement("beacon_root")] | None = Field(
         None
     )
+    requests_root: Annotated[Hash, HeaderForkRequirement("requests")] | None = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -380,6 +385,7 @@ class FixtureExecutionPayload(CamelModel):
 
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
+    requests: Requests | None = None
 
     @classmethod
     def from_fixture_header(
@@ -387,6 +393,7 @@ class FixtureExecutionPayload(CamelModel):
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None = None,
+        requests: Requests | None = None,
     ) -> "FixtureExecutionPayload":
         """
         Returns a FixtureExecutionPayload from a FixtureHeader, a list
@@ -396,6 +403,7 @@ class FixtureExecutionPayload(CamelModel):
             **header.model_dump(exclude={"rlp"}, exclude_none=True),
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
+            requests=requests,
         )
 
 
@@ -483,6 +491,41 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
+class FixtureDeposit(DepositGeneric[ZeroPaddedHexNumber]):
+    """
+    Structure to represent a single deposit to be processed by the beacon
+    chain.
+    """
+
+    @classmethod
+    def from_deposit(cls, d: DepositGeneric) -> "FixtureDeposit":
+        """
+        Returns a FixtureDeposit from a Deposit.
+        """
+        return cls(**d.model_dump())
+
+
+class FixtureRequests(RootModel):
+    """
+    Structure to represent a list of requests in a blockchain fixture.
+    """
+
+    root: List[FixtureDeposit] = Field(default_factory=list)
+
+    @classmethod
+    def from_requests(cls, r: Requests) -> "FixtureRequests":
+        """
+        Returns a FixtureRequests from a Requests.
+        """
+        requests: List[FixtureDeposit] = []
+        for request in r.root:
+            if isinstance(request, Deposit):
+                requests.append(FixtureDeposit.from_deposit(request))
+            else:
+                raise ValueError("Invalid request type")
+        return cls(root=requests)
+
+
 class FixtureBlockBase(CamelModel):
     """Representation of an Ethereum block within a test Fixture without RLP bytes."""
 
@@ -490,6 +533,7 @@ class FixtureBlockBase(CamelModel):
     txs: List[FixtureTransaction] = Field(default_factory=list, alias="transactions")
     ommers: List[FixtureHeader] = Field(default_factory=list, alias="uncleHeaders")
     withdrawals: List[FixtureWithdrawal] | None = None
+    requests: FixtureRequests | None = None
 
     @computed_field(alias="blocknumber")  # type: ignore[misc]
     @cached_property
