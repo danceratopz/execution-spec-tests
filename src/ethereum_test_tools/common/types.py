@@ -1255,8 +1255,6 @@ class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     signature: BLSSignature
     index: NumberBoundTypeVar
 
-    ty: Literal["0x00"] = Field("0x00", alias="type")
-
     def to_serializable_list(self) -> List[Any]:
         """
         Returns the deposit's attributes as a list of serializable elements.
@@ -1274,6 +1272,8 @@ class Deposit(DepositGeneric[HexNumber]):
     """
     Deposit type
     """
+
+    ty: Literal["0x0"] = Field("0x0", alias="type")
 
     pass
 

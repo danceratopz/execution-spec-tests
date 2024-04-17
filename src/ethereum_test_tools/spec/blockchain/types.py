@@ -497,6 +497,8 @@ class FixtureDeposit(DepositGeneric[ZeroPaddedHexNumber]):
     chain.
     """
 
+    ty: Literal["0x00"] = Field("0x00", alias="type")
+
     @classmethod
     def from_deposit(cls, d: DepositGeneric) -> "FixtureDeposit":
         """

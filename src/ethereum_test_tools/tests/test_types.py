@@ -1668,7 +1668,7 @@ def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
             """
             [
                 {
-                    "type": "0x00",
+                    "type": "0x0",
                     "pubkey": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
                     "withdrawalCredentials": "0x0000000000000000000000000000000000000000000000000000000000000002",
                     "amount": "0x1234",
