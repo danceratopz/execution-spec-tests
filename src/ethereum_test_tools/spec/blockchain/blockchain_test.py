@@ -139,6 +139,9 @@ class BlockchainTest(BaseTest):
             if env.withdrawals is not None
             else None,
             parent_beacon_block_root=env.parent_beacon_block_root,
+            requests_root=Requests(root=[]).trie_root()
+            if fork.header_requests_required(0, 0)
+            else None,
         )
 
         return (
@@ -146,7 +149,10 @@ class BlockchainTest(BaseTest):
             FixtureBlockBase(
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
-            ).with_rlp(txs=[]),
+                requests=FixtureRequests() if fork.header_requests_required(0, 0) else None,
+            ).with_rlp(
+                txs=[], requests=Requests() if fork.header_requests_required(0, 0) else None
+            ),
         )
 
     def generate_block_data(
@@ -237,9 +243,6 @@ class BlockchainTest(BaseTest):
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
             extra_data=block.extra_data if block.extra_data is not None else b"",
-            requests_root=transition_tool_output.result.requests.trie_root()
-            if transition_tool_output.result.requests
-            else None,
             fork=fork,
         )
 
@@ -252,10 +255,25 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = header.join(block.rlp_modifier)
 
+        requests = (
+            Requests(root=transition_tool_output.result.deposits)
+            if transition_tool_output.result.deposits is not None
+            else None
+        )
+
+        if requests is not None and requests.trie_root() != header.requests_root:
+            raise Exception(
+                f"Requests root in header does not match the requests root in the transition tool "
+                "output: "
+                f"{header.requests_root} != {requests.trie_root()}"
+            )
+
+        if block.requests is not None:
+            requests = block.requests
         return (
             header,
             txs,
-            transition_tool_output.result.requests,
+            requests,
             transition_tool_output.alloc,
             env,
         )
@@ -320,7 +338,7 @@ class BlockchainTest(BaseTest):
                     requests=FixtureRequests.from_requests(requests)
                     if requests is not None
                     else None,
-                ).with_rlp(txs=txs)
+                ).with_rlp(txs=txs, requests=requests)
                 if block.exception is None:
                     fixture_blocks.append(fixture_block)
                     # Update env, alloc and last block hash for the next block.

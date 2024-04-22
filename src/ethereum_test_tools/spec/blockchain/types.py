@@ -308,6 +308,10 @@ class Block(Header):
     """
     List of withdrawals to perform for this block.
     """
+    requests: Requests | None = None
+    """
+    Custom list of requests to embed in this block.
+    """
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -385,7 +389,7 @@ class FixtureExecutionPayload(CamelModel):
 
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
-    requests: Requests | None = None
+    deposits: List[Deposit] | None = None
 
     @classmethod
     def from_fixture_header(
@@ -403,7 +407,7 @@ class FixtureExecutionPayload(CamelModel):
             **header.model_dump(exclude={"rlp"}, exclude_none=True),
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
-            requests=requests,
+            deposits=requests.deposits() if requests is not None else None,
         )
 
 
@@ -547,7 +551,7 @@ class FixtureBlockBase(CamelModel):
         """
         return Number(self.header.number)
 
-    def with_rlp(self, txs: List[Transaction]) -> "FixtureBlock":
+    def with_rlp(self, txs: List[Transaction], requests: Requests | None) -> "FixtureBlock":
         """
         Returns a FixtureBlock with the RLP bytes set.
         """
@@ -559,6 +563,11 @@ class FixtureBlockBase(CamelModel):
 
         if self.withdrawals is not None:
             block.append([w.to_serializable_list() for w in self.withdrawals])
+
+        if requests is not None:
+            block.append(
+                [r.type_byte() + eth_rlp.encode(r.to_serializable_list()) for r in requests.root]
+            )
 
         return FixtureBlock(
             **self.model_dump(),

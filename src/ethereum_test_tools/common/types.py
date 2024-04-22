@@ -6,14 +6,12 @@ from dataclasses import dataclass
 from functools import cached_property
 from itertools import count
 from typing import (
-    Annotated,
     Any,
     ClassVar,
     Dict,
     Generic,
     Iterator,
     List,
-    Literal,
     Sequence,
     SupportsBytes,
     Type,
@@ -1244,6 +1242,25 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         ]
 
 
+class RequestBase:
+    """
+    Base class for requests.
+    """
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the request type.
+        """
+        raise NotImplementedError("request_type must be implemented in child classes")
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the request's attributes as a list of serializable elements.
+        """
+        raise NotImplementedError("to_serializable_list must be implemented in child classes")
+
+
 class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     """
     Generic deposit type used as a parent for Deposit and FixtureDeposit.
@@ -1254,6 +1271,13 @@ class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     amount: NumberBoundTypeVar
     signature: BLSSignature
     index: NumberBoundTypeVar
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the deposit request type.
+        """
+        return b"\0"
 
     def to_serializable_list(self) -> List[Any]:
         """
@@ -1273,8 +1297,6 @@ class Deposit(DepositGeneric[HexNumber]):
     Deposit type
     """
 
-    ty: Literal["0x0"] = Field("0x0", alias="type")
-
     pass
 
 
@@ -1283,19 +1305,25 @@ class Requests(RootModel[List[Deposit]]):
     Requests for the transition tool.
     """
 
-    root: List[Annotated[Deposit, Field(discriminator="ty")]] = Field(default_factory=list)
+    root: List[Deposit] = Field(default_factory=list)
 
     def trie_root(self) -> Hash:
         """
         Returns the root hash of the requests.
         """
         t = HexaryTrie(db={})
-        for i, d in enumerate(self.root):
+        for i, r in enumerate(self.root):
             t.set(
                 eth_rlp.encode(Uint(i)),
-                bytes.fromhex(d.ty[2:]) + eth_rlp.encode(d.to_serializable_list()),
+                r.type_byte() + eth_rlp.encode(r.to_serializable_list()),
             )
         return Hash(t.root_hash)
+
+    def deposits(self) -> List[Deposit]:
+        """
+        Returns the list of deposits.
+        """
+        return [d for d in self.root if isinstance(d, Deposit)]
 
 
 # TODO: Move to other file
@@ -1352,7 +1380,8 @@ class Result(CamelModel):
     withdrawals_root: Hash | None = None
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
-    requests: Requests | None = None
+    requests_root: Hash | None = None
+    deposits: List[Deposit] | None = None
 
 
 class TransitionToolOutput(CamelModel):
