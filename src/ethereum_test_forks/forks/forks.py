@@ -2,11 +2,16 @@
 All Ethereum fork class definitions.
 """
 
+from os.path import realpath
+from pathlib import Path
 from typing import List, Mapping, Optional
 
 from semver import Version
 
 from ..base_fork import BaseFork
+
+CURRENT_FILE = Path(realpath(__file__))
+CURRENT_FOLDER = CURRENT_FILE.parent
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
@@ -487,7 +492,7 @@ class Prague(Cancun):
         """
         Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110
         """
-        with open("deposit_contract.bin", mode="rb") as f:
+        with open(CURRENT_FOLDER / "deposit_contract.bin", mode="rb") as f:
             new_allocation = {
                 0x00000000219AB540356CBB839CBE05303D7705FA: {
                     "nonce": 1,
