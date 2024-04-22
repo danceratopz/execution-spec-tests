@@ -392,8 +392,8 @@ class FixtureExecutionPayload(CamelModel):
         cls,
         header: FixtureHeader,
         transactions: List[Transaction],
-        withdrawals: List[Withdrawal] | None = None,
-        requests: Requests | None = None,
+        withdrawals: List[Withdrawal] | None,
+        requests: Requests | None,
     ) -> "FixtureExecutionPayload":
         """
         Returns a FixtureExecutionPayload from a FixtureHeader, a list
@@ -436,6 +436,7 @@ class FixtureEngineNewPayload(CamelModel):
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
+        requests: Requests | None,
         **kwargs,
     ) -> "FixtureEngineNewPayload":
         """
@@ -450,6 +451,7 @@ class FixtureEngineNewPayload(CamelModel):
                 header=header,
                 transactions=transactions,
                 withdrawals=withdrawals,
+                requests=requests,
             ),
             version=new_payload_version,
             blob_versioned_hashes=(
