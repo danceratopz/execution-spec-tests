@@ -8,7 +8,7 @@ from typing import Annotated, Any, ClassVar, Dict, List, Literal, get_args, get_
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
-from pydantic import ConfigDict, Field, PlainSerializer, RootModel, computed_field, field_validator
+from pydantic import ConfigDict, Field, PlainSerializer, computed_field, field_validator
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats
@@ -27,8 +27,8 @@ from ...common.constants import EmptyOmmersRoot, EngineAPIError
 from ...common.types import (
     Alloc,
     CamelModel,
-    Deposit,
-    DepositGeneric,
+    DepositRequest,
+    DepositRequestGeneric,
     Environment,
     Removable,
     Requests,
@@ -409,7 +409,7 @@ class FixtureExecutionPayload(CamelModel):
 
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
-    deposits: List[Deposit] | None = None
+    deposit_requests: List[DepositRequest] | None = None
 
     @classmethod
     def from_fixture_header(
@@ -427,7 +427,7 @@ class FixtureExecutionPayload(CamelModel):
             **header.model_dump(exclude={"rlp"}, exclude_none=True),
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
-            deposits=requests.deposits() if requests is not None else None,
+            deposit_requests=requests.deposit_requests() if requests is not None else None,
         )
 
 
@@ -517,41 +517,18 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
-class FixtureDeposit(DepositGeneric[ZeroPaddedHexNumber]):
+class FixtureDepositRequest(DepositRequestGeneric[ZeroPaddedHexNumber]):
     """
     Structure to represent a single deposit to be processed by the beacon
     chain.
     """
 
-    ty: Literal["0x00"] = Field("0x00", alias="type")
-
     @classmethod
-    def from_deposit(cls, d: DepositGeneric) -> "FixtureDeposit":
+    def from_deposit(cls, d: DepositRequestGeneric) -> "FixtureDepositRequest":
         """
-        Returns a FixtureDeposit from a Deposit.
+        Returns a FixtureDepositRequest from a DepositRequest.
         """
         return cls(**d.model_dump())
-
-
-class FixtureRequests(RootModel):
-    """
-    Structure to represent a list of requests in a blockchain fixture.
-    """
-
-    root: List[FixtureDeposit] = Field(default_factory=list)
-
-    @classmethod
-    def from_requests(cls, r: Requests) -> "FixtureRequests":
-        """
-        Returns a FixtureRequests from a Requests.
-        """
-        requests: List[FixtureDeposit] = []
-        for request in r.root:
-            if isinstance(request, Deposit):
-                requests.append(FixtureDeposit.from_deposit(request))
-            else:
-                raise ValueError("Invalid request type")
-        return cls(root=requests)
 
 
 class FixtureBlockBase(CamelModel):
@@ -561,7 +538,7 @@ class FixtureBlockBase(CamelModel):
     txs: List[FixtureTransaction] = Field(default_factory=list, alias="transactions")
     ommers: List[FixtureHeader] = Field(default_factory=list, alias="uncleHeaders")
     withdrawals: List[FixtureWithdrawal] | None = None
-    requests: FixtureRequests | None = None
+    deposit_requests: List[FixtureDepositRequest] | None = None
 
     @computed_field(alias="blocknumber")  # type: ignore[misc]
     @cached_property

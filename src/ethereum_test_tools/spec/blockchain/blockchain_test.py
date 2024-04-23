@@ -22,9 +22,9 @@ from .types import (
     Fixture,
     FixtureBlock,
     FixtureBlockBase,
+    FixtureDepositRequest,
     FixtureEngineNewPayload,
     FixtureHeader,
-    FixtureRequests,
     FixtureTransaction,
     FixtureWithdrawal,
     HiveFixture,
@@ -149,7 +149,7 @@ class BlockchainTest(BaseTest):
             FixtureBlockBase(
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
-                requests=FixtureRequests() if fork.header_requests_required(0, 0) else None,
+                deposit_requests=[] if fork.header_requests_required(0, 0) else None,
             ).with_rlp(
                 txs=[], requests=Requests() if fork.header_requests_required(0, 0) else None
             ),
@@ -335,7 +335,9 @@ class BlockchainTest(BaseTest):
                     withdrawals=[FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
                     if new_env.withdrawals is not None
                     else None,
-                    requests=FixtureRequests.from_requests(requests)
+                    deposit_requests=[
+                        FixtureDepositRequest.from_deposit(d) for d in requests.deposit_requests()
+                    ]
                     if requests is not None
                     else None,
                 ).with_rlp(txs=txs, requests=requests)

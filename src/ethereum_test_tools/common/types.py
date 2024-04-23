@@ -1269,9 +1269,9 @@ class RequestBase:
         raise NotImplementedError("to_serializable_list must be implemented in child classes")
 
 
-class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
+class DepositRequestGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     """
-    Generic deposit type used as a parent for Deposit and FixtureDeposit.
+    Generic deposit type used as a parent for DepositRequest and FixtureDepositRequest.
     """
 
     pubkey: BLSPublicKey
@@ -1351,20 +1351,20 @@ class DepositGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         )
 
 
-class Deposit(DepositGeneric[HexNumber]):
+class DepositRequest(DepositRequestGeneric[HexNumber]):
     """
-    Deposit type
+    Deposit Request type
     """
 
     pass
 
 
-class Requests(RootModel[List[Deposit]]):
+class Requests(RootModel[List[DepositRequest]]):
     """
     Requests for the transition tool.
     """
 
-    root: List[Deposit] = Field(default_factory=list)
+    root: List[DepositRequest] = Field(default_factory=list)
 
     @cached_property
     def trie_root(self) -> Hash:
@@ -1379,11 +1379,11 @@ class Requests(RootModel[List[Deposit]]):
             )
         return Hash(t.root_hash)
 
-    def deposits(self) -> List[Deposit]:
+    def deposit_requests(self) -> List[DepositRequest]:
         """
-        Returns the list of deposits.
+        Returns the list of deposit requests.
         """
-        return [d for d in self.root if isinstance(d, Deposit)]
+        return [d for d in self.root if isinstance(d, DepositRequest)]
 
 
 # TODO: Move to other file
@@ -1457,7 +1457,7 @@ class Result(CamelModel):
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
     requests_root: Hash | None = None
-    deposits: List[Deposit] | None = None
+    deposits: List[DepositRequest] | None = None
 
 
 class TransitionToolOutput(CamelModel):

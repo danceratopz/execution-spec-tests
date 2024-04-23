@@ -19,7 +19,7 @@ from ..common import (
 from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
 from ..common.constants import TestPrivateKey
 from ..common.json import to_json
-from ..common.types import Alloc, Deposit, Requests
+from ..common.types import Alloc, DepositRequest, Requests
 from ..exceptions import BlockException, TransactionException
 from ..spec.blockchain.types import (
     FixtureBlockBase,
@@ -1683,7 +1683,7 @@ def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
             TypeAdapter(Requests),
             Requests(
                 root=[
-                    Deposit(
+                    DepositRequest(
                         pubkey=1,
                         withdrawal_credentials=2,
                         amount=0x1234,
@@ -1705,9 +1705,9 @@ def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
 
 def test_deposit():
     """
-    Test that the Deposit class can be instantiated and its attributes are set correctly.
+    Test that the DepositRequest class can be instantiated and its attributes are set correctly.
     """
-    deposit = Deposit(
+    deposit = DepositRequest(
         pubkey=0x01,
         withdrawal_credentials=0x02,
         amount=32_000_000_000,
