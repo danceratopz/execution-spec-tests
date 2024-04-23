@@ -1366,6 +1366,7 @@ class Requests(RootModel[List[Deposit]]):
 
     root: List[Deposit] = Field(default_factory=list)
 
+    @cached_property
     def trie_root(self) -> Hash:
         """
         Returns the root hash of the requests.

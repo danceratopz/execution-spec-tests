@@ -1131,6 +1131,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ).with_signature_and_sender(),
                 ],
                 withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                requests=None,
             ),
             {
                 "parentHash": Hash(0).hex(),
@@ -1223,6 +1224,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             amount=2,
                         )
                     ],
+                    requests=None,
                 ),
                 validation_error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 version=1,
@@ -1323,6 +1325,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         ).with_signature_and_sender(),
                     ],
                     withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    requests=None,
                 ),
                 version=1,
                 validation_error=[
@@ -1698,3 +1701,36 @@ def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
     Test that parsing the given JSON string returns the expected object.
     """
     assert type_adapter.validate_json(json_str) == expected
+
+
+def test_deposit():
+    """
+    Test that the Deposit class can be instantiated and its attributes are set correctly.
+    """
+    deposit = Deposit(
+        pubkey=0x01,
+        withdrawal_credentials=0x02,
+        amount=32_000_000_000,
+        signature=0x03,
+        index=0x0,
+    )
+    assert deposit.deposit_data_root == bytes.fromhex(
+        "85acb6376c2707b118225da41825974c12b5924a05c6a53b988c9cbc33c55b05"
+    )
+
+    assert deposit.calldata == bytes.fromhex(
+        "22895118"
+        "0000000000000000000000000000000000000000000000000000000000000080"
+        "00000000000000000000000000000000000000000000000000000000000000d0"
+        "0000000000000000000000000000000000000000000000000000000000000110"
+        "85acb6376c2707b118225da41825974c12b5924a05c6a53b988c9cbc33c55b05"
+        "0000000000000000000000000000000000000000000000000000000000000030"
+        "0000000000000000000000000000000000000000000000000000000000000000"
+        "00000000000000000000000000000001"
+        "0000000000000000000000000000000000000000000000000000000000000020"
+        "0000000000000000000000000000000000000000000000000000000000000002"
+        "0000000000000000000000000000000000000000000000000000000000000060"
+        "0000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000003"
+    )

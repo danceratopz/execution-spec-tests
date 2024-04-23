@@ -8,7 +8,7 @@ from typing import Annotated, Any, ClassVar, Dict, List, Literal, get_args, get_
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
-from pydantic import ConfigDict, Field, PlainSerializer, RootModel, computed_field
+from pydantic import ConfigDict, Field, PlainSerializer, RootModel, computed_field, field_validator
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats
@@ -100,6 +100,26 @@ class Header(CamelModel):
             Removable: lambda x: None,
         },
     )
+
+    @field_validator("withdrawals_root", mode="before")
+    @classmethod
+    def validate_withdrawals_root(cls, value):
+        """
+        Helper validator to convert a list of withdrawals into the withdrawals root hash.
+        """
+        if isinstance(value, list):
+            return Withdrawal.list_root(value)
+        return value
+
+    @field_validator("requests_root", mode="before")
+    @classmethod
+    def validate_requests_root(cls, value):
+        """
+        Helper validator to convert a list of requests into the requests root hash.
+        """
+        if isinstance(value, list):
+            return Requests(root=value).trie_root
+        return value
 
 
 class HeaderForkRequirement(str):

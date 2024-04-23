@@ -139,7 +139,7 @@ class BlockchainTest(BaseTest):
             if env.withdrawals is not None
             else None,
             parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_root=Requests(root=[]).trie_root()
+            requests_root=Requests(root=[]).trie_root
             if fork.header_requests_required(0, 0)
             else None,
         )
@@ -261,11 +261,11 @@ class BlockchainTest(BaseTest):
             else None
         )
 
-        if requests is not None and requests.trie_root() != header.requests_root:
+        if requests is not None and requests.trie_root != header.requests_root:
             raise Exception(
                 f"Requests root in header does not match the requests root in the transition tool "
                 "output: "
-                f"{header.requests_root} != {requests.trie_root()}"
+                f"{header.requests_root} != {requests.trie_root}"
             )
 
         if block.requests is not None:
