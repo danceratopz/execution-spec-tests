@@ -256,8 +256,8 @@ class BlockchainTest(BaseTest):
             header = header.join(block.rlp_modifier)
 
         requests = (
-            Requests(root=transition_tool_output.result.deposits)
-            if transition_tool_output.result.deposits is not None
+            Requests(root=transition_tool_output.result.deposit_requests)
+            if transition_tool_output.result.deposit_requests is not None
             else None
         )
 

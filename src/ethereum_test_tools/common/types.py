@@ -1457,7 +1457,7 @@ class Result(CamelModel):
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
     requests_root: Hash | None = None
-    deposits: List[DepositRequest] | None = None
+    deposit_requests: List[DepositRequest] | None = None
 
 
 class TransitionToolOutput(CamelModel):
