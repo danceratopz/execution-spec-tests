@@ -14,7 +14,9 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    BlockException,
     DepositRequest,
+    EngineAPIError,
     Environment,
     Header,
 )
@@ -825,6 +827,182 @@ def test_deposit(
                 header_verify=Header(
                     requests_root=included_deposits,
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "deposit_requests,block_requests,exception,engine_api_error_code",
+    [
+        pytest.param(
+            [],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            None,
+            id="no_deposits_non_empty_requests_list",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                ),
+            ],
+            [],
+            BlockException.INVALID_REQUESTS,
+            None,
+            id="single_deposit_empty_requests_list",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x1,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            None,
+            id="single_deposit_field_mismatch",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x1,
+                    ),
+                    included=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x1,
+                ),
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            None,
+            id="two_deposits_out_of_order",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                ),
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            None,
+            id="single_deposit_duplicate_in_requests_list",
+        ),
+    ],
+)
+def test_deposit_negative(
+    blockchain_test: BlockchainTestFiller,
+    deposit_requests: List[DepositTransactionBase],
+    block_requests: List[DepositRequest],
+    exception: BlockException,
+    engine_api_error_code: EngineAPIError | None,
+    pre: Dict[Address, Account],
+    txs: List[Transaction],
+):
+    """
+    Test producing a block with the incorrect deposits in the body of the block,
+    and/or Engine API payload.
+    """
+    included_deposits = []
+
+    for d in deposit_requests:
+        included_deposits += d.included_deposits()
+
+    blockchain_test(
+        genesis_environment=Environment(),
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=txs,
+                header_verify=Header(
+                    requests_root=included_deposits,
+                ),
+                requests=block_requests,
+                exception=exception,
+                engine_api_error_code=engine_api_error_code,
             )
         ],
     )
