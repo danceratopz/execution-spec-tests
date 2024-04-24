@@ -914,6 +914,7 @@ def test_deposit(
                         signature=0x03,
                         index=0x1,
                     ),
+                    nonce=1,
                     included=True,
                 ),
             ],
