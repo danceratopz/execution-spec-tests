@@ -112,7 +112,7 @@ class DepositContract:
     sender_balance: int = 32_000_000_000_000_000_000 * 100
 
     contract_balance: int = 32_000_000_000_000_000_000 * 100
-    contract_address: Address = Address(0x200)
+    contract_address: int = 0x200
 
     extra_code: bytes = b""
 
@@ -153,7 +153,7 @@ class DepositContract:
         """Return the pre-state of the account."""
         return {
             self.sender_account.address: Account(balance=self.sender_balance),
-            self.contract_address: Account(
+            Address(self.contract_address): Account(
                 balance=self.contract_balance, code=self.contract_code, nonce=1
             ),
         }
@@ -167,7 +167,10 @@ class DepositContract:
 
 @pytest.fixture
 def pre(deposit_requests: List[DepositTransactionBase]) -> Dict[Address, Account]:
-    """Initial state of the accounts."""
+    """
+    Initial state of the accounts. Every deposit transaction defines their own pre-state
+    requirements, and this fixture aggregates them all.
+    """
     pre = {}
     for d in deposit_requests:
         pre.update(d.pre())
@@ -568,6 +571,89 @@ def txs(
                 ),
             ],
             id="single_deposit_from_eoa_single_deposit_from_contract",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                    nonce=0,
+                ),
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        ),
+                    ],
+                    included=True,
+                    nonce=1,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x2,
+                    ),
+                    included=True,
+                    nonce=2,
+                ),
+            ],
+            id="single_deposit_from_contract_between_eoa_deposits",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
+                    included=True,
+                    nonce=0,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x1,
+                    ),
+                    included=True,
+                    nonce=1,
+                ),
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x2,
+                        ),
+                    ],
+                    included=True,
+                    nonce=2,
+                    contract_address=0x300,
+                ),
+            ],
+            id="single_deposit_from_eoa_between_contract_deposits",
         ),
     ],
 )
