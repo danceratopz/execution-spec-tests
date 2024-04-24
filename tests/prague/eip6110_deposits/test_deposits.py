@@ -75,6 +75,7 @@ class DepositTransaction(DepositTransactionBase):
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     sender_account: SenderAccount = TestAccount1
     nonce: int = 0
+    calldata: bytes | None = None
 
     def transaction(self) -> Transaction:
         """Return a transaction for the deposit request."""
@@ -84,7 +85,7 @@ class DepositTransaction(DepositTransactionBase):
             gas_price=0x07,
             to=Spec.DEPOSIT_CONTRACT_ADDRESS,
             value=self.deposit_request.value,
-            data=self.deposit_request.calldata,
+            data=self.calldata if self.calldata is not None else self.deposit_request.calldata,
             secret_key=self.sender_account.key,
         )
 
@@ -446,6 +447,22 @@ def txs(
                 ),
             ],
             id="multiple_deposit_from_same_eoa_last_oog",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=False,
+                    calldata=b"",
+                ),
+            ],
+            id="send_eth_from_eoa",
         ),
         pytest.param(
             [
