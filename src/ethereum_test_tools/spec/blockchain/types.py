@@ -328,7 +328,7 @@ class Block(Header):
     """
     List of withdrawals to perform for this block.
     """
-    requests: Requests | None = None
+    requests: List[DepositRequest] | None = None
     """
     Custom list of requests to embed in this block.
     """

@@ -269,7 +269,9 @@ class BlockchainTest(BaseTest):
             )
 
         if block.requests is not None:
-            requests = block.requests
+            requests = Requests(root=block.requests)
+            header.requests_root = requests.trie_root
+
         return (
             header,
             txs,
