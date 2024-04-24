@@ -106,7 +106,7 @@ class DepositContract:
     deposit_request: List[DepositRequest] | DepositRequest
     included: List[bool] | bool
 
-    gas_limit: int = 1_000_000
+    tx_gas_limit: int = 1_000_000
 
     sender_account: SenderAccount = TestAccount1
     sender_balance: int = 32_000_000_000_000_000_000 * 100
@@ -114,6 +114,8 @@ class DepositContract:
     contract_balance: int = 32_000_000_000_000_000_000 * 100
     contract_address: int = 0x200
 
+    call_type: Op = Op.CALL
+    call_depth: int = 2
     extra_code: bytes = b""
 
     nonce: int = 0
@@ -131,8 +133,17 @@ class DepositContract:
         code = b""
         current_offset = 0
         for d in self.deposit_requests:
+            value_arg = [d.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
             code += Op.CALLDATACOPY(0, current_offset, len(d.calldata)) + Op.POP(
-                Op.CALL(Op.GAS, Spec.DEPOSIT_CONTRACT_ADDRESS, d.value, 0, len(d.calldata), 0, 0)
+                self.call_type(
+                    Op.GAS,
+                    Spec.DEPOSIT_CONTRACT_ADDRESS,
+                    *value_arg,
+                    0,
+                    len(d.calldata),
+                    0,
+                    0,
+                )
             )
             current_offset += len(d.calldata)
         return code + self.extra_code
@@ -141,13 +152,47 @@ class DepositContract:
         """Return a transaction for the deposit request."""
         return Transaction(
             nonce=self.nonce,
-            gas_limit=self.gas_limit,
+            gas_limit=self.tx_gas_limit,
             gas_price=0x07,
-            to=self.contract_address,
+            to=self.entry_address,
             value=0,
             data=b"".join(d.calldata for d in self.deposit_requests),
             secret_key=self.sender_account.key,
         )
+
+    @property
+    def entry_address(self) -> Address:
+        """Return the address of the contract entry point."""
+        if self.call_depth == 2:
+            return Address(self.contract_address)
+        elif self.call_depth > 2:
+            return Address(self.contract_address + self.call_depth - 2)
+        raise ValueError("Invalid call depth")
+
+    @property
+    def extra_contracts(self) -> Dict[Address, Account]:
+        """Extra contracts used to simulate call depth."""
+        if self.call_depth <= 2:
+            return {}
+        return {
+            Address(self.contract_address + i): Account(
+                balance=self.contract_balance,
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                + Op.POP(
+                    Op.CALL(
+                        Op.GAS,
+                        self.contract_address + i - 1,
+                        0,
+                        0,
+                        Op.CALLDATASIZE,
+                        0,
+                        0,
+                    )
+                ),
+                nonce=1,
+            )
+            for i in range(1, self.call_depth - 1)
+        }
 
     def pre(self) -> Dict[Address, Account]:
         """Return the pre-state of the account."""
@@ -156,7 +201,7 @@ class DepositContract:
             Address(self.contract_address): Account(
                 balance=self.contract_balance, code=self.contract_code, nonce=1
             ),
-        }
+        } | self.extra_contracts
 
     def included_deposits(self) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
@@ -655,6 +700,88 @@ def txs(
             ],
             id="single_deposit_from_eoa_between_contract_deposits",
         ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    call_type=Op.DELEGATECALL,
+                    included=False,
+                ),
+            ],
+            id="single_deposit_from_contract_delegatecall",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    call_type=Op.STATICCALL,
+                    included=False,
+                ),
+            ],
+            id="single_deposit_from_contract_staticcall",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    call_type=Op.CALLCODE,
+                    included=False,
+                ),
+            ],
+            id="single_deposit_from_contract_callcode",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                    call_depth=3,
+                ),
+            ],
+            id="single_deposit_from_contract_call_depth_3",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    included=True,
+                    call_depth=1024,
+                    tx_gas_limit=2_500_000_000_000,
+                ),
+            ],
+            id="single_deposit_from_contract_call_high_depth",
+        ),
+        # TODO: Send eth with the transaction to the contract
     ],
 )
 def test_deposit(
