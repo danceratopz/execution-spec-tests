@@ -103,7 +103,7 @@ class DepositTransaction(DepositTransactionBase):
 
 
 @dataclass(kw_only=True)
-class DepositContract:
+class DepositContract(DepositTransactionBase):
     """Class used to describe a deposit originated from a contract."""
 
     deposit_request: List[DepositRequest] | DepositRequest
