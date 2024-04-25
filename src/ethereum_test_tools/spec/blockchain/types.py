@@ -524,7 +524,7 @@ class FixtureDepositRequest(DepositRequestGeneric[ZeroPaddedHexNumber]):
     """
 
     @classmethod
-    def from_deposit(cls, d: DepositRequestGeneric) -> "FixtureDepositRequest":
+    def from_deposit_request(cls, d: DepositRequestGeneric) -> "FixtureDepositRequest":
         """
         Returns a FixtureDepositRequest from a DepositRequest.
         """

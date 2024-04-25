@@ -338,7 +338,8 @@ class BlockchainTest(BaseTest):
                     if new_env.withdrawals is not None
                     else None,
                     deposit_requests=[
-                        FixtureDepositRequest.from_deposit(d) for d in requests.deposit_requests()
+                        FixtureDepositRequest.from_deposit_request(d)
+                        for d in requests.deposit_requests()
                     ]
                     if requests is not None
                     else None,
