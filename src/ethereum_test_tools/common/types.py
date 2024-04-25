@@ -1343,6 +1343,12 @@ class Requests(RootModel[List[DepositRequest | WithdrawalRequest]]):
 
     root: List[DepositRequest | WithdrawalRequest] = Field(default_factory=list)
 
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the requests as a list of serializable elements.
+        """
+        return [r.type_byte() + eth_rlp.encode(r.to_serializable_list()) for r in self.root]
+
     @cached_property
     def trie_root(self) -> Hash:
         """
@@ -1441,6 +1447,7 @@ class Result(CamelModel):
     blob_gas_used: HexNumber | None = None
     requests_root: Hash | None = None
     deposit_requests: List[DepositRequest] | None = None
+    withdrawal_requests: List[WithdrawalRequest] | None = None
 
 
 class TransitionToolOutput(CamelModel):
