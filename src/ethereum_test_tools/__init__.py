@@ -57,7 +57,7 @@ from .spec import (
     TestInfo,
 )
 from .spec.blockchain.types import Block, Header
-from .vm import Macro, Opcode, OpcodeCallArg, Opcodes
+from .vm import Macro, Macros, Opcode, OpcodeCallArg, Opcodes
 
 __all__ = (
     "SPEC_TYPES",
@@ -87,6 +87,7 @@ __all__ = (
     "Header",
     "Initcode",
     "Macro",
+    "Macros",
     "Opcode",
     "OpcodeCallArg",
     "Opcodes",
