@@ -102,6 +102,11 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
         return []
 
 
+##############
+#  Fixtures  #
+##############
+
+
 @pytest.fixture
 def included_withdrawal_requests(
     blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
@@ -150,6 +155,8 @@ def included_withdrawal_requests(
             carry_over_withdrawal_requests = current_block_valid_withdrawal_requests[
                 Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :
             ]
+        else:
+            carry_over_withdrawal_requests = []
 
         all_withdrawal_requests.append(current_block_included_withdrawal_requests)
     return all_withdrawal_requests
@@ -192,6 +199,11 @@ def blocks(
     return blocks
 
 
+################
+#  Test cases  #
+################
+
+
 @pytest.mark.parametrize(
     "blocks_withdrawal_requests",
     [
@@ -231,7 +243,7 @@ def blocks(
                 [
                     WithdrawalRequestTransaction(
                         withdrawal_request=WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_public_key=i + 1,
                             amount=0,
                         ),
                         fee=Spec.get_fee(0),
@@ -248,7 +260,7 @@ def blocks(
                 [
                     WithdrawalRequestTransaction(
                         withdrawal_request=WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_public_key=i + 1,
                             amount=0,
                         ),
                         fee=Spec.get_fee(0),
@@ -256,7 +268,9 @@ def blocks(
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK * 2)
                 ],
-                # Block 2
+                # Block 2, no new withdrawal requests, but queued requests from previous block
+                [],
+                # Block 3, no new nor queued withdrawal requests
                 [],
             ],
             id="single_block_above_max_withdrawal_requests_from_eoa",
