@@ -1269,7 +1269,7 @@ class RequestBase:
         raise NotImplementedError("to_serializable_list must be implemented in child classes")
 
 
-class DepositRequestGeneric(CamelModel, Generic[NumberBoundTypeVar]):
+class DepositRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
     """
     Generic deposit type used as a parent for DepositRequest and FixtureDepositRequest.
     """
