@@ -243,8 +243,31 @@ def blocks(
                 [
                     WithdrawalRequestTransaction(
                         withdrawal_request=WithdrawalRequest(
-                            validator_public_key=i + 1,
+                            validator_public_key=0x01,
                             amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=Spec.MAX_AMOUNT - 1,
+                        ),
+                        fee=Spec.get_fee(0),
+                        sender_account=TestAccount2,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_from_different_eoa",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=i + 1,
+                            amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                         ),
                         fee=Spec.get_fee(0),
                         nonce=i,
@@ -261,7 +284,7 @@ def blocks(
                     WithdrawalRequestTransaction(
                         withdrawal_request=WithdrawalRequest(
                             validator_public_key=i + 1,
-                            amount=0,
+                            amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                         ),
                         fee=Spec.get_fee(0),
                         nonce=i,
@@ -273,7 +296,7 @@ def blocks(
                 # Block 3, no new nor queued withdrawal requests
                 [],
             ],
-            id="single_block_above_max_withdrawal_requests_from_eoa",
+            id="multiple_block_above_max_withdrawal_requests_from_eoa",
         ),
     ],
 )
