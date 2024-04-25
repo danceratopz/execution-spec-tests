@@ -37,6 +37,11 @@ REFERENCE_SPEC_VERSION = ref_spec_6110.version
 pytestmark = pytest.mark.valid_from("Prague")
 
 
+#############
+#  Helpers  #
+#############
+
+
 @dataclass
 class SenderAccount:
     """Test sender account descriptor."""
@@ -213,6 +218,11 @@ class DepositContract(DepositTransactionBase):
         return [d for d, i in zip(self.deposit_requests, self.included) if i]
 
 
+##############
+#  Fixtures  #
+##############
+
+
 @pytest.fixture
 def pre(deposit_requests: List[DepositTransactionBase]) -> Dict[Address, Account]:
     """
@@ -231,6 +241,11 @@ def txs(
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
     return [d.transaction() for d in deposit_requests]
+
+
+################
+#  Test cases  #
+################
 
 
 @pytest.mark.parametrize(
@@ -810,7 +825,7 @@ def test_deposit(
     txs: List[Transaction],
 ):
     """
-    Test making a deposit to the beacon chain deposit contract from an externally owned account.
+    Test making a deposit to the beacon chain deposit contract.
     """
     included_deposits = []
 
