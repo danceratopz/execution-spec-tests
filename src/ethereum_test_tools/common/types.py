@@ -1306,8 +1306,8 @@ class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeV
     FixtureWithdrawalRequest.
     """
 
-    source_address: Address
-    validator_pubkey: BLSPublicKey
+    source_address: Address = Address(0)
+    validator_public_key: BLSPublicKey
     amount: NumberBoundTypeVar
 
     @classmethod
@@ -1323,15 +1323,29 @@ class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeV
         """
         return [
             self.source_address,
-            self.validator_pubkey,
+            self.validator_public_key,
             Uint(self.amount),
         ]
+
+    @cached_property
+    def calldata(self) -> bytes:
+        """
+        Returns the calldata needed to call the withdrawal request contract and make the
+        withdrawal.
+        """
+        return self.validator_public_key + self.amount.to_bytes(8, byteorder="big")
 
 
 class WithdrawalRequest(WithdrawalRequestGeneric[HexNumber]):
     """
     Withdrawal Request type
     """
+
+    def with_source_address(self, source_address: Address) -> "WithdrawalRequest":
+        """
+        Create a copy of the withdrawal request with a modified source address.
+        """
+        return self.copy(source_address=source_address)
 
     pass
 

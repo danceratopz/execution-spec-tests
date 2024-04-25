@@ -412,6 +412,7 @@ class FixtureExecutionPayload(CamelModel):
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
     deposit_requests: List[DepositRequest] | None = None
+    withdrawal_requests: List[WithdrawalRequest] | None = None
 
     @classmethod
     def from_fixture_header(
@@ -430,6 +431,7 @@ class FixtureExecutionPayload(CamelModel):
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
             deposit_requests=requests.deposit_requests() if requests is not None else None,
+            withdrawal_requests=requests.withdrawal_requests() if requests is not None else None,
         )
 
 
