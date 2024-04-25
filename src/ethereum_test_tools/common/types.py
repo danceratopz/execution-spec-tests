@@ -1300,12 +1300,48 @@ class DepositRequest(DepositRequestGeneric[HexNumber]):
     pass
 
 
-class Requests(RootModel[List[DepositRequest]]):
+class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
+    """
+    Generic withdrawal request type used as a parent for WithdrawalRequest and
+    FixtureWithdrawalRequest.
+    """
+
+    source_address: Address
+    validator_pubkey: BLSPublicKey
+    amount: NumberBoundTypeVar
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the withdrawal request type.
+        """
+        return b"\1"
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the deposit's attributes as a list of serializable elements.
+        """
+        return [
+            self.source_address,
+            self.validator_pubkey,
+            Uint(self.amount),
+        ]
+
+
+class WithdrawalRequest(WithdrawalRequestGeneric[HexNumber]):
+    """
+    Withdrawal Request type
+    """
+
+    pass
+
+
+class Requests(RootModel[List[DepositRequest | WithdrawalRequest]]):
     """
     Requests for the transition tool.
     """
 
-    root: List[DepositRequest] = Field(default_factory=list)
+    root: List[DepositRequest | WithdrawalRequest] = Field(default_factory=list)
 
     @cached_property
     def trie_root(self) -> Hash:
@@ -1325,6 +1361,12 @@ class Requests(RootModel[List[DepositRequest]]):
         Returns the list of deposit requests.
         """
         return [d for d in self.root if isinstance(d, DepositRequest)]
+
+    def withdrawal_requests(self) -> List[WithdrawalRequest]:
+        """
+        Returns the list of withdrawal requests.
+        """
+        return [w for w in self.root if isinstance(w, WithdrawalRequest)]
 
 
 # TODO: Move to other file
