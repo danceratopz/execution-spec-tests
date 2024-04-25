@@ -19,6 +19,7 @@ from ethereum_test_tools import (
     EngineAPIError,
     Environment,
     Header,
+    Macros,
 )
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
@@ -592,6 +593,31 @@ def txs(
                 ),
             ],
             id="multiple_deposits_from_contract_caller_reverts",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        ),
+                    ],
+                    extra_code=Macros.OOG(),
+                    included=False,
+                ),
+            ],
+            id="multiple_deposits_from_contract_caller_oog",
         ),
         pytest.param(
             [
