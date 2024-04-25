@@ -69,7 +69,7 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
     """Class used to describe a withdrawal request originated from an externally owned account."""
 
     withdrawal_request: WithdrawalRequest
-    valid: bool
+    valid: bool = True
     fee: int = 0
     gas_limit: int = 1_000_000
     sender_balance: int = 32_000_000_000_000_000_000 * 100
@@ -102,21 +102,21 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
         return []
 
 
-def get_included_withdrawal_requests_per_block(
+@pytest.fixture
+def included_withdrawal_requests(
     blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
 ) -> List[List[WithdrawalRequest]]:
     """
-    Return the list of withdrawal requests that should be included in the block with the given
-    number.
+    Return the list of withdrawal requests that should be included in each block.
     """
     excess_withdrawal_requests = 0
     carry_over_withdrawal_requests: List[WithdrawalRequest] = []
     all_withdrawal_requests: List[List[WithdrawalRequest]] = []
-    for wl in blocks_withdrawal_requests:
+    for block_withdrawal_requests in blocks_withdrawal_requests:
         current_block_fee = Spec.get_fee(excess_withdrawal_requests)
 
         current_block_valid_withdrawal_requests = carry_over_withdrawal_requests
-        for w in wl:
+        for w in block_withdrawal_requests:
             current_block_valid_withdrawal_requests += w.valid_withdrawal_requests(
                 current_block_fee
             )
@@ -170,6 +170,28 @@ def pre(
     return pre
 
 
+@pytest.fixture
+def blocks(
+    blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
+    included_withdrawal_requests: List[List[WithdrawalRequest]],
+) -> List[Block]:
+    """
+    Return the list of blocks that should be included in the test.
+    """
+    blocks: List[Block] = []
+    for i in range(len(blocks_withdrawal_requests)):
+        txs = [w.transaction() for w in blocks_withdrawal_requests[i]]
+        blocks.append(
+            Block(
+                txs=txs,
+                header_verify=Header(
+                    requests_root=included_withdrawal_requests[i],
+                ),
+            )
+        )
+    return blocks
+
+
 @pytest.mark.parametrize(
     "blocks_withdrawal_requests",
     [
@@ -183,7 +205,6 @@ def pre(
                             amount=0,
                         ),
                         fee=Spec.get_fee(0),
-                        valid=True,
                     ),
                 ],
             ],
@@ -198,8 +219,22 @@ def pre(
                             validator_public_key=0x01,
                             amount=0,
                         ),
+                        fee=0,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_eoa_insufficient_fee",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
                         fee=Spec.get_fee(0),
-                        valid=True,
                         nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
@@ -217,7 +252,6 @@ def pre(
                             amount=0,
                         ),
                         fee=Spec.get_fee(0),
-                        valid=True,
                         nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK * 2)
@@ -231,31 +265,12 @@ def pre(
 )
 def test_withdrawal_requests(
     blockchain_test: BlockchainTestFiller,
-    blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
+    blocks: List[Block],
     pre: Dict[Address, Account],
 ):
     """
     Test making a withdrawal request to the beacon chain from an externally owned account.
     """
-    blocks: List[Block] = []
-
-    included_withdrawal_requests = get_included_withdrawal_requests_per_block(
-        blocks_withdrawal_requests
-    )
-
-    for i in range(len(blocks_withdrawal_requests)):
-        block_request_transactions = blocks_withdrawal_requests[i]
-        txs = [w.transaction() for w in block_request_transactions]
-
-        blocks.append(
-            Block(
-                txs=txs,
-                header_verify=Header(
-                    requests_root=included_withdrawal_requests[i],
-                ),
-            )
-        )
-
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
