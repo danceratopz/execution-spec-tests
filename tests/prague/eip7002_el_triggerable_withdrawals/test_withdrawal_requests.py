@@ -6,7 +6,6 @@ abstract: Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips
 
 from abc import ABC
 from dataclasses import dataclass
-from enum import Enum
 from typing import Dict, List
 
 import pytest
@@ -18,6 +17,10 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Environment,
     Header,
+    Macros,
+)
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools import (
     TestAddress,
     TestAddress2,
     TestPrivateKey,
@@ -100,6 +103,134 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
         if self.valid and self.fee >= current_block_fee:
             return [self.withdrawal_request.with_source_address(self.sender_account.address)]
         return []
+
+
+@dataclass(kw_only=True)
+class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
+    """Class used to describe a deposit originated from a contract."""
+
+    withdrawal_request: List[WithdrawalRequest] | WithdrawalRequest
+    valid: List[bool] | bool = True
+    fee: List[int] | int = 0
+
+    tx_gas_limit: int = 1_000_000
+
+    sender_account: SenderAccount = TestAccount1
+    sender_balance: int = 32_000_000_000_000_000_000 * 100
+
+    contract_balance: int = 32_000_000_000_000_000_000 * 100
+    contract_address: int = 0x200
+
+    call_type: Op = Op.CALL
+    call_depth: int = 2
+    extra_code: bytes = b""
+
+    nonce: int = 0
+
+    @property
+    def withdrawal_requests(self) -> List[WithdrawalRequest]:
+        """Return the list of withdrawal requests."""
+        if not isinstance(self.withdrawal_request, List):
+            return [self.withdrawal_request]
+        return self.withdrawal_request
+
+    @property
+    def fees(self) -> List[int]:
+        """Return the list of fees for each withdrawal request."""
+        if not isinstance(self.fee, List):
+            return [self.fee] * len(self.withdrawal_requests)
+        return self.fee
+
+    @property
+    def valid_list(self) -> List[bool]:
+        """Return the list of fees for each withdrawal request."""
+        if not isinstance(self.valid, List):
+            return [self.valid] * len(self.withdrawal_requests)
+        return self.valid
+
+    @property
+    def contract_code(self) -> bytes:
+        """Contract code used by the relay contract."""
+        code = b""
+        current_offset = 0
+        for fee, w in zip(self.fees, self.withdrawal_requests):
+            value_arg = [fee] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            code += Op.CALLDATACOPY(0, current_offset, len(w.calldata)) + Op.POP(
+                self.call_type(
+                    Op.GAS,
+                    Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                    *value_arg,
+                    0,
+                    len(w.calldata),
+                    0,
+                    0,
+                )
+            )
+            current_offset += len(w.calldata)
+        return code + self.extra_code
+
+    def transaction(self) -> Transaction:
+        """Return a transaction for the deposit request."""
+        return Transaction(
+            nonce=self.nonce,
+            gas_limit=self.tx_gas_limit,
+            gas_price=0x07,
+            to=self.entry_address,
+            value=0,
+            data=b"".join(w.calldata for w in self.withdrawal_requests),
+            secret_key=self.sender_account.key,
+        )
+
+    @property
+    def entry_address(self) -> Address:
+        """Return the address of the contract entry point."""
+        if self.call_depth == 2:
+            return Address(self.contract_address)
+        elif self.call_depth > 2:
+            return Address(self.contract_address + self.call_depth - 2)
+        raise ValueError("Invalid call depth")
+
+    @property
+    def extra_contracts(self) -> Dict[Address, Account]:
+        """Extra contracts used to simulate call depth."""
+        if self.call_depth <= 2:
+            return {}
+        return {
+            Address(self.contract_address + i): Account(
+                balance=self.contract_balance,
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                + Op.POP(
+                    Op.CALL(
+                        Op.GAS,
+                        self.contract_address + i - 1,
+                        0,
+                        0,
+                        Op.CALLDATASIZE,
+                        0,
+                        0,
+                    )
+                ),
+                nonce=1,
+            )
+            for i in range(1, self.call_depth - 1)
+        }
+
+    def pre(self) -> Dict[Address, Account]:
+        """Return the pre-state of the account."""
+        return {
+            self.sender_account.address: Account(balance=self.sender_balance),
+            Address(self.contract_address): Account(
+                balance=self.contract_balance, code=self.contract_code, nonce=1
+            ),
+        } | self.extra_contracts
+
+    def valid_withdrawal_requests(self, current_block_fee: int) -> List[WithdrawalRequest]:
+        """Return the list of withdrawal requests that are valid."""
+        valid_requests: List[WithdrawalRequest] = []
+        for w, fee, valid in zip(self.withdrawal_requests, self.fees, self.valid_list):
+            if valid and fee >= current_block_fee:
+                valid_requests.append(w.with_source_address(Address(self.contract_address)))
+        return valid_requests
 
 
 ##############
@@ -246,6 +377,70 @@ def blocks(
                             validator_public_key=0x01,
                             amount=0,
                         ),
+                        calldata=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ).calldata[:-1],
+                        fee=Spec.get_fee(0),
+                        valid=False,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_eoa_input_too_short",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        calldata=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ).calldata
+                        + b"\x00",
+                        fee=Spec.get_fee(0),
+                        valid=False,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_eoa_input_too_long",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=Spec.MAX_AMOUNT - 1,
+                        ),
+                        fee=Spec.get_fee(0),
+                        nonce=1,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_from_same_eoa",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
                         fee=Spec.get_fee(0),
                     ),
                     WithdrawalRequestTransaction(
@@ -283,6 +478,104 @@ def blocks(
                 [
                     WithdrawalRequestTransaction(
                         withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=0,
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=Spec.MAX_AMOUNT - 1,
+                        ),
+                        fee=Spec.get_fee(0),
+                        nonce=1,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_first_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=Spec.MAX_AMOUNT - 1,
+                        ),
+                        fee=0,
+                        nonce=1,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_last_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        # Value obtained from trace minus one
+                        gas_limit=114_247 - 1,
+                        valid=False,
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        nonce=1,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_first_oog",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                    ),
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x02,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        # Value obtained from trace minus one
+                        gas_limit=80_047 - 1,
+                        nonce=1,
+                        valid=False,
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_request_last_oog",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestTransaction(
+                        withdrawal_request=WithdrawalRequest(
                             validator_public_key=i + 1,
                             amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                         ),
@@ -297,6 +590,115 @@ def blocks(
                 [],
             ],
             id="multiple_block_above_max_withdrawal_requests_from_eoa",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_from_contract",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=Spec.get_fee(0),
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=[0] + [Spec.get_fee(0)] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_first_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=[Spec.get_fee(0)] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [0],
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_last_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=Spec.get_fee(0),
+                        valid=False,
+                        extra_code=Op.REVERT(0, 0),
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_caller_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=Spec.get_fee(0),
+                        valid=False,
+                        extra_code=Macros.OOG(),
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_caller_oog",
         ),
     ],
 )

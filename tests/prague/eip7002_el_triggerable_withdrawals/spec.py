@@ -57,7 +57,7 @@ class Spec:
     @staticmethod
     def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
         """
-        Used to calculate the blob gas cost.
+        Used to calculate the withdrawal request fee.
         """
         i = 1
         output = 0
