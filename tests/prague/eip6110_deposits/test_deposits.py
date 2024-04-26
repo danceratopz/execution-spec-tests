@@ -339,9 +339,9 @@ def blocks(
             txs=txs,
             header_verify=Header(
                 requests_root=included_deposits,
-                requests=block_requests,
-                exception=exception,
             ),
+            requests=block_requests,
+            exception=exception,
         )
     ]
 
