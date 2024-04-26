@@ -16,6 +16,7 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    BlockException,
     Environment,
     Header,
     Macros,
@@ -863,7 +864,48 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
         pytest.param(
             # Test the first 50 fee increments
             get_n_fee_increment_blocks(50),
-            id="fee_increments",
+            id="multiple_block_fee_increments",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        call_type=Op.DELEGATECALL,
+                        contract_address=0x200,
+                        nonce=0,
+                        valid=False,
+                    ),
+                    WithdrawalRequestContract(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        call_type=Op.STATICCALL,
+                        contract_address=0x300,
+                        nonce=1,
+                        valid=False,
+                    ),
+                    WithdrawalRequestContract(
+                        withdrawal_request=WithdrawalRequest(
+                            validator_public_key=0x01,
+                            amount=0,
+                        ),
+                        fee=Spec.get_fee(0),
+                        call_type=Op.CALLCODE,
+                        contract_address=0x400,
+                        nonce=2,
+                        valid=False,
+                    ),
+                ],
+            ],
+            id="single_block_single_withdrawal_request_delegatecall_staticcall_callcode",
         ),
     ],
 )
@@ -873,11 +915,199 @@ def test_withdrawal_requests(
     pre: Dict[Address, Account],
 ):
     """
-    Test making a withdrawal request to the beacon chain from an externally owned account.
+    Test making a withdrawal request to the beacon chain.
     """
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
         post={},
         blocks=blocks,
+    )
+
+
+@pytest.mark.parametrize(
+    "withdrawal_requests,block_requests,exception",
+    [
+        pytest.param(
+            [],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=Address(0),
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="no_withdrawals_non_empty_requests_list",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                ),
+            ],
+            [],
+            BlockException.INVALID_REQUESTS,
+            id="single_withdrawal_request_empty_requests_list",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x02,
+                    amount=0,
+                    source_address=TestAddress,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_withdrawal_request_public_key_mismatch",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=1,
+                    source_address=TestAddress,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_withdrawal_request_amount_mismatch",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=TestAddress2,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_withdrawal_request_source_address_mismatch",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                    nonce=0,
+                ),
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x02,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                    nonce=1,
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x02,
+                    amount=0,
+                    source_address=TestAddress,
+                ),
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=TestAddress,
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="two_withdrawal_requests_out_of_order",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=Spec.get_fee(0),
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=TestAddress,
+                ),
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=TestAddress,
+                ),
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_withdrawal_requests_duplicate_in_requests_list",
+        ),
+    ],
+)
+def test_withdrawal_requests_negative(
+    blockchain_test: BlockchainTestFiller,
+    withdrawal_requests: List[WithdrawalRequestTransactionBase],
+    block_requests: List[WithdrawalRequest],
+    exception: BlockException,
+):
+    """
+    Test blocks where the requests list and the actual withdrawal requests that happened in the
+    block's transactions do not match.
+    """
+    # No previous block so fee is the base
+    fee = 1
+    current_block_requests = []
+    for w in withdrawal_requests:
+        current_block_requests += w.valid_withdrawal_requests(fee)
+    included_withdrawal_requests = current_block_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
+
+    pre = {}
+    for w in withdrawal_requests:
+        pre.update(w.pre())
+
+    blockchain_test(
+        genesis_environment=Environment(),
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[w.transaction() for w in withdrawal_requests],
+                header_verify=Header(
+                    requests_root=included_withdrawal_requests,
+                ),
+                requests=block_requests,
+                exception=exception,
+            )
+        ],
     )
