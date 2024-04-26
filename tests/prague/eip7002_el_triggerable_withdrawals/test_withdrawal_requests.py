@@ -6,6 +6,7 @@ abstract: Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips
 
 from abc import ABC
 from dataclasses import dataclass
+from itertools import count
 from typing import Dict, List
 
 import pytest
@@ -319,51 +320,30 @@ def included_withdrawal_requests(
     Return the list of withdrawal requests that should be included in each block.
     """
     excess_withdrawal_requests = 0
-    carry_over_withdrawal_requests: List[WithdrawalRequest] = []
-    all_withdrawal_requests: List[List[WithdrawalRequest]] = []
+    carry_over_requests: List[WithdrawalRequest] = []
+    per_block_included_requests: List[List[WithdrawalRequest]] = []
     for block_withdrawal_requests in blocks_withdrawal_requests:
+        # Get fee for the current block
         current_block_fee = Spec.get_fee(excess_withdrawal_requests)
 
-        current_block_valid_withdrawal_requests = carry_over_withdrawal_requests
+        # With the fee, get the valid withdrawal requests for the current block
+        current_block_requests = []
         for w in block_withdrawal_requests:
-            current_block_valid_withdrawal_requests += w.valid_withdrawal_requests(
-                current_block_fee
-            )
+            current_block_requests += w.valid_withdrawal_requests(current_block_fee)
 
-        current_block_included_withdrawal_requests = current_block_valid_withdrawal_requests[
-            : Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-        ]
+        # Get the withdrawal requests that should be included in the block
+        pending_requests = carry_over_requests + current_block_requests
+        per_block_included_requests.append(
+            pending_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
+        )
+        carry_over_requests = pending_requests[Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :]
 
-        if (
-            len(current_block_valid_withdrawal_requests)
-            > Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
-        ):
-            excess_withdrawal_requests += (
-                len(current_block_valid_withdrawal_requests)
-                - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
-            )
-        elif (
-            len(current_block_valid_withdrawal_requests)
-            < Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
-        ):
-            excess_withdrawal_requests = max(
-                0,
-                excess_withdrawal_requests
-                - (
-                    len(current_block_valid_withdrawal_requests)
-                    - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
-                ),
-            )
-
-        if len(current_block_valid_withdrawal_requests) > Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK:
-            carry_over_withdrawal_requests = current_block_valid_withdrawal_requests[
-                Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK :
-            ]
-        else:
-            carry_over_withdrawal_requests = []
-
-        all_withdrawal_requests.append(current_block_included_withdrawal_requests)
-    return all_withdrawal_requests
+        # Update the excess withdrawal requests
+        excess_withdrawal_requests = Spec.get_excess_withdrawal_requests(
+            excess_withdrawal_requests,
+            len(current_block_requests),
+        )
+    return per_block_included_requests
 
 
 @pytest.fixture
@@ -400,6 +380,73 @@ def blocks(
                 ),
             )
         )
+    return blocks
+
+
+#############
+#  Helpers  #
+#############
+
+
+def get_n_fee_increments(n: int) -> List[int]:
+    """
+    Get the first N excess withdrawal requests that increase the fee.
+    """
+    excess_withdrawal_requests_counts = []
+    last_fee = 1
+    for i in count(0):
+        if Spec.get_fee(i) > last_fee:
+            excess_withdrawal_requests_counts.append(i)
+            last_fee = Spec.get_fee(i)
+        if len(excess_withdrawal_requests_counts) == n:
+            break
+    return excess_withdrawal_requests_counts
+
+
+def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
+    """
+    Return N blocks that should be included in the test such that each subsequent block has an
+    increasing fee for the withdrawal requests.
+
+    This is done by calculating the number of withdrawals required to reach the next fee increment
+    and creating a block with that number of withdrawal requests plus the number of withdrawals
+    required to reach the target.
+    """
+    blocks = []
+    previous_excess = 0
+    nonce = count(0)
+    withdrawal_index = 0
+    previous_fee = 0
+    for required_excess_withdrawals in get_n_fee_increments(n):
+        withdrawals_required = (
+            required_excess_withdrawals
+            + Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+            - previous_excess
+        )
+        tx_nonce = next(nonce)
+        fee = Spec.get_fee(previous_excess)
+        assert fee > previous_fee
+        blocks.append(
+            [
+                WithdrawalRequestContract(
+                    withdrawal_request=[
+                        WithdrawalRequest(
+                            validator_public_key=i,
+                            amount=0,
+                        )
+                        for i in range(withdrawal_index, withdrawal_index + withdrawals_required)
+                    ],
+                    fee=fee,
+                    # Increment the contract address to avoid overwriting the previous one
+                    contract_address=0x200 + (tx_nonce * 0x100),
+                    nonce=tx_nonce,
+                )
+            ],
+        )
+        previous_fee = fee
+        withdrawal_index += withdrawals_required
+        previous_excess = required_excess_withdrawals
+
     return blocks
 
 
@@ -812,6 +859,11 @@ def blocks(
                 ],
             ],
             id="single_block_multiple_withdrawal_requests_from_contract_caller_oog",
+        ),
+        pytest.param(
+            # Test the first 50 fee increments
+            get_n_fee_increment_blocks(50),
+            id="fee_increments",
         ),
     ],
 )

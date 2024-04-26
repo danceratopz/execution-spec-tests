@@ -78,3 +78,12 @@ class Spec:
             excess_withdrawal_requests,
             Spec.WITHDRAWAL_REQUEST_FEE_UPDATE_FRACTION,
         )
+
+    @staticmethod
+    def get_excess_withdrawal_requests(previous_excess: int, count: int) -> int:
+        """
+        Calculate the new excess withdrawal requests.
+        """
+        if previous_excess + count > Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK:
+            return previous_excess + count - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+        return 0
