@@ -316,8 +316,16 @@ def test_valid_deposit_withdrawal_requests(
     )
 
 
+@pytest.mark.parametrize(
+    "deposit_first",
+    [
+        pytest.param(True, id="deposit_first"),
+        pytest.param(False, id="withdrawal_first"),
+    ],
+)
 def test_valid_deposit_withdrawal_request_from_same_tx(
     blockchain_test: BlockchainTestFiller,
+    deposit_first: bool,
 ):
     """
     Test making a deposit to the beacon chain deposit contract and a withdrawal in the same tx.
@@ -336,33 +344,60 @@ def test_valid_deposit_withdrawal_request_from_same_tx(
         amount=0,
         source_address=contract_address,
     )
-    calldata = deposit_request.calldata + withdrawal_request.calldata
-
-    contract_code = (
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.POP(
-            Op.CALL(
-                Op.GAS,
-                Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS,
-                deposit_request.value,
-                0,
-                len(deposit_request.calldata),
-                0,
-                0,
+    if deposit_first:
+        calldata = deposit_request.calldata + withdrawal_request.calldata
+        contract_code = (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.POP(
+                Op.CALL(
+                    Op.GAS,
+                    Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS,
+                    deposit_request.value,
+                    0,
+                    len(deposit_request.calldata),
+                    0,
+                    0,
+                )
+            )
+            + Op.POP(
+                Op.CALL(
+                    Op.GAS,
+                    Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                    withdrawal_request_fee,
+                    len(deposit_request.calldata),
+                    len(withdrawal_request.calldata),
+                    0,
+                    0,
+                )
             )
         )
-        + Op.POP(
-            Op.CALL(
-                Op.GAS,
-                Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-                withdrawal_request_fee,
-                len(deposit_request.calldata),
-                len(withdrawal_request.calldata),
-                0,
-                0,
+    else:
+        calldata = withdrawal_request.calldata + deposit_request.calldata
+        contract_code = (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.POP(
+                Op.CALL(
+                    Op.GAS,
+                    Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                    withdrawal_request_fee,
+                    0,
+                    len(withdrawal_request.calldata),
+                    0,
+                    0,
+                )
+            )
+            + Op.POP(
+                Op.CALL(
+                    Op.GAS,
+                    Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS,
+                    deposit_request.value,
+                    len(withdrawal_request.calldata),
+                    len(deposit_request.calldata),
+                    0,
+                    0,
+                )
             )
         )
-    )
 
     pre = {
         TestAddress: Account(
