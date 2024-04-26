@@ -72,13 +72,38 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
     """Class used to describe a withdrawal request originated from an externally owned account."""
 
     withdrawal_request: WithdrawalRequest
+    """
+    Withdrawal request to be requested by the transaction.
+    """
     valid: bool = True
+    """
+    Whether the withdrawal request is valid or not.
+    """
     fee: int = 0
+    """
+    Fee to be paid for the withdrawal request.
+    """
     gas_limit: int = 1_000_000
+    """
+    Gas limit for the transaction.
+    """
     sender_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the account that sends the transaction.
+    """
     sender_account: SenderAccount = TestAccount1
+    """
+    Account that will send the transaction.
+    """
     nonce: int = 0
+    """
+    Nonce of the sender account.
+    """
     calldata: bytes | None = None
+    """
+    Calldata to be used in the transaction. By default it automatically generates the calldata
+    according to the withdrawal request.
+    """
 
     def transaction(self) -> Transaction:
         """Return a transaction for the withdrawal request."""
@@ -110,22 +135,63 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
     """Class used to describe a deposit originated from a contract."""
 
     withdrawal_request: List[WithdrawalRequest] | WithdrawalRequest
+    """
+    Withdrawal request or list of withdrawal requests to be requested by the contract.
+    """
     valid: List[bool] | bool = True
+    """
+    Whether the withdrawal request is valid or not. If a list, it should have the same length as
+    `withdrawal_request`.
+    """
     fee: List[int] | int = 0
+    """
+    Fee to be paid for each withdrawal request. If a list, it should have the same length as
+    `withdrawal_request`.
+    """
 
     tx_gas_limit: int = 1_000_000
+    """
+    Gas limit for the transaction.
+    """
 
     sender_account: SenderAccount = TestAccount1
+    """
+    Account that will send the transaction (not the actual caller to the pre-deploy contract)
+    """
     sender_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the account that sends the transaction.
+    """
+    nonce: int = 0
+    """
+    Nonce of the sender account.
+    """
 
     contract_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the contract that will make the call to the pre-deploy contract.
+    """
     contract_address: int = 0x200
+    """
+    Address of the contract that will make the call to the pre-deploy contract.
+    """
 
+    call_gas: List[int] | int = -1
+    """
+    Gas to be used in the call. If -1, the gas is Op.GAS.
+    """
     call_type: Op = Op.CALL
+    """
+    Type of call to be used to make the withdrawal request.
+    """
     call_depth: int = 2
+    """
+    Frame depth of the pre-deploy contract when it executes the call.
+    """
     extra_code: bytes = b""
-
-    nonce: int = 0
+    """
+    Extra code to be added to the contract code.
+    """
 
     @property
     def withdrawal_requests(self) -> List[WithdrawalRequest]:
@@ -149,15 +215,22 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
         return self.valid
 
     @property
+    def call_gas_list(self) -> List[int]:
+        """Return the list of fees for each withdrawal request."""
+        if not isinstance(self.call_gas, List):
+            return [self.call_gas] * len(self.withdrawal_requests)
+        return self.call_gas
+
+    @property
     def contract_code(self) -> bytes:
         """Contract code used by the relay contract."""
         code = b""
         current_offset = 0
-        for fee, w in zip(self.fees, self.withdrawal_requests):
+        for fee, gas, w in zip(self.fees, self.call_gas_list, self.withdrawal_requests):
             value_arg = [fee] if self.call_type in (Op.CALL, Op.CALLCODE) else []
             code += Op.CALLDATACOPY(0, current_offset, len(w.calldata)) + Op.POP(
                 self.call_type(
-                    Op.GAS,
+                    Op.GAS if gas == -1 else gas,
                     Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
                     *value_arg,
                     0,
@@ -659,6 +732,46 @@ def blocks(
                 ],
             ],
             id="single_block_multiple_withdrawal_requests_from_contract_last_reverts",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=Spec.get_fee(0),
+                        call_gas=[0x100] + [-1] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
+                        valid=[False] + [True] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_first_oog",
+        ),
+        pytest.param(
+            [
+                # Block 1
+                [
+                    WithdrawalRequestContract(
+                        withdrawal_request=[
+                            WithdrawalRequest(
+                                validator_public_key=i + 1,
+                                amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                            )
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ],
+                        fee=Spec.get_fee(0),
+                        call_gas=[-1] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [0x100],
+                        valid=[True] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [False],
+                    ),
+                ],
+            ],
+            id="single_block_multiple_withdrawal_requests_from_contract_last_oog",
         ),
         pytest.param(
             [
