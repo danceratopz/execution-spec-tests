@@ -18,6 +18,9 @@ from ethereum_test_tools import (
     DepositRequest,
     Environment,
     Header,
+)
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools import (
     TestAddress,
     TestAddress2,
     TestPrivateKey,
@@ -26,11 +29,13 @@ from ethereum_test_tools import (
     WithdrawalRequest,
 )
 
+from ..eip6110_deposits.spec import Spec as Spec_EIP6110
 from ..eip6110_deposits.test_deposits import (
     DepositContract,
     DepositTransaction,
     DepositTransactionBase,
 )
+from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec_EIP7002
 from ..eip7002_el_triggerable_withdrawals.test_withdrawal_requests import (
     WithdrawalRequestContract,
     WithdrawalRequestTransaction,
@@ -117,9 +122,9 @@ def blocks(
             txs=txs,
             header_verify=Header(
                 requests_root=included_deposit_requests + included_withdrawal_requests,
-                requests=block_requests,
-                exception=exception,
             ),
+            requests=block_requests,
+            exception=exception,
         )
     ]
 
@@ -311,8 +316,90 @@ def test_valid_deposit_withdrawal_requests(
     )
 
 
+def test_valid_deposit_withdrawal_request_from_same_tx(
+    blockchain_test: BlockchainTestFiller,
+):
+    """
+    Test making a deposit to the beacon chain deposit contract and a withdrawal in the same tx.
+    """
+    contract_address = 0x200
+    withdrawal_request_fee = 1
+    deposit_request = DepositRequest(
+        pubkey=0x01,
+        withdrawal_credentials=0x02,
+        amount=32_000_000_000,
+        signature=0x03,
+        index=0x0,
+    )
+    withdrawal_request = WithdrawalRequest(
+        validator_public_key=0x01,
+        amount=0,
+        source_address=contract_address,
+    )
+    calldata = deposit_request.calldata + withdrawal_request.calldata
+
+    contract_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.CALL(
+                Op.GAS,
+                Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS,
+                deposit_request.value,
+                0,
+                len(deposit_request.calldata),
+                0,
+                0,
+            )
+        )
+        + Op.POP(
+            Op.CALL(
+                Op.GAS,
+                Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                withdrawal_request_fee,
+                len(deposit_request.calldata),
+                len(withdrawal_request.calldata),
+                0,
+                0,
+            )
+        )
+    )
+
+    pre = {
+        TestAddress: Account(
+            balance=10**18,
+        ),
+        contract_address: Account(
+            code=contract_code,
+            balance=deposit_request.value + withdrawal_request_fee,
+        ),
+    }
+
+    tx = Transaction(
+        nonce=0,
+        gas_limit=1_000_000,
+        gas_price=0x07,
+        to=contract_address,
+        value=0,
+        data=calldata,
+    )
+
+    block = Block(
+        txs=[tx],
+        header_verify=Header(
+            requests_root=[deposit_request, withdrawal_request],
+        ),
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(),
+        pre=pre,
+        post={},
+        blocks=[block],
+    )
+
+
 @pytest.mark.parametrize(
-    "requests,block_requests,exception,engine_api_error",
+    "requests,block_requests,exception",
     [
         pytest.param(
             [
