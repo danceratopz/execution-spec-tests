@@ -16,7 +16,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     BlockException,
     DepositRequest,
-    EngineAPIError,
     Environment,
     Header,
     Macros,
@@ -990,7 +989,7 @@ def test_deposit(
 
 
 @pytest.mark.parametrize(
-    "deposit_requests,block_requests,exception,engine_api_error_code",
+    "deposit_requests,block_requests,exception",
     [
         pytest.param(
             [],
@@ -1004,7 +1003,6 @@ def test_deposit(
                 ),
             ],
             BlockException.INVALID_REQUESTS,
-            None,
             id="no_deposits_non_empty_requests_list",
         ),
         pytest.param(
@@ -1022,8 +1020,107 @@ def test_deposit(
             ],
             [],
             BlockException.INVALID_REQUESTS,
-            None,
             id="single_deposit_empty_requests_list",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    valid=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x02,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_deposit_pubkey_mismatch",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    valid=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x03,
+                    amount=1_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_deposit_credentials_mismatch",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    valid=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=2_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_deposit_amount_mismatch",
+        ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=1_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    valid=True,
+                ),
+            ],
+            [
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=1_000_000_000,
+                    signature=0x04,
+                    index=0x0,
+                )
+            ],
+            BlockException.INVALID_REQUESTS,
+            id="single_deposit_signature_mismatch",
         ),
         pytest.param(
             [
@@ -1048,8 +1145,7 @@ def test_deposit(
                 )
             ],
             BlockException.INVALID_REQUESTS,
-            None,
-            id="single_deposit_field_mismatch",
+            id="single_deposit_index_mismatch",
         ),
         pytest.param(
             [
@@ -1092,7 +1188,6 @@ def test_deposit(
                 ),
             ],
             BlockException.INVALID_REQUESTS,
-            None,
             id="two_deposits_out_of_order",
         ),
         pytest.param(
@@ -1125,7 +1220,6 @@ def test_deposit(
                 ),
             ],
             BlockException.INVALID_REQUESTS,
-            None,
             id="single_deposit_duplicate_in_requests_list",
         ),
     ],
@@ -1135,7 +1229,6 @@ def test_deposit_negative(
     deposit_requests: List[DepositTransactionBase],
     block_requests: List[DepositRequest],
     exception: BlockException,
-    engine_api_error_code: EngineAPIError | None,
     pre: Dict[Address, Account],
     txs: List[Transaction],
 ):
@@ -1160,7 +1253,6 @@ def test_deposit_negative(
                 ),
                 requests=block_requests,
                 exception=exception,
-                engine_api_error_code=engine_api_error_code,
             )
         ],
     )
