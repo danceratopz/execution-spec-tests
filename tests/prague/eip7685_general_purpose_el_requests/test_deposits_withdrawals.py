@@ -178,6 +178,121 @@ def blocks(
             ],
             id="single_withdrawal_from_eoa_single_deposit_from_eoa",
         ),
+        pytest.param(
+            [
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    nonce=0,
+                ),
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=1,
+                    nonce=1,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x1,
+                    ),
+                    nonce=2,
+                ),
+            ],
+            id="two_deposits_from_eoa_single_withdrawal_from_eoa",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=1,
+                    nonce=0,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    nonce=1,
+                ),
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=1,
+                    ),
+                    fee=1,
+                    nonce=2,
+                ),
+            ],
+            id="two_withdrawals_from_eoa_single_deposit_from_eoa",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    nonce=0,
+                    contract_address=0x200,
+                ),
+                WithdrawalRequestContract(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=1,
+                    nonce=1,
+                    contract_address=0x300,
+                ),
+            ],
+            id="single_deposit_from_contract_single_withdrawal_from_contract",
+        ),
+        pytest.param(
+            [
+                WithdrawalRequestContract(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=1,
+                    nonce=0,
+                    contract_address=0x300,
+                ),
+                DepositContract(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    nonce=1,
+                    contract_address=0x200,
+                ),
+            ],
+            id="single_withdrawal_from_contract_single_deposit_from_contract",
+        ),
+        # TODO: Deposit and withdrawal in the same transaction
     ],
 )
 def test_valid_deposit_withdrawal_requests(
@@ -186,7 +301,67 @@ def test_valid_deposit_withdrawal_requests(
     blocks: List[Block],
 ):
     """
-    Test making a deposit to the beacon chain deposit contract.
+    Test making a deposit to the beacon chain deposit contract and a withdrawal in the same block.
+    """
+    blockchain_test(
+        genesis_environment=Environment(),
+        pre=pre,
+        post={},
+        blocks=blocks,
+    )
+
+
+@pytest.mark.parametrize(
+    "requests,block_requests,exception,engine_api_error",
+    [
+        pytest.param(
+            [
+                WithdrawalRequestTransaction(
+                    withdrawal_request=WithdrawalRequest(
+                        validator_public_key=0x01,
+                        amount=0,
+                    ),
+                    fee=1,
+                    nonce=0,
+                ),
+                DepositTransaction(
+                    deposit_request=DepositRequest(
+                        pubkey=0x01,
+                        withdrawal_credentials=0x02,
+                        amount=32_000_000_000,
+                        signature=0x03,
+                        index=0x0,
+                    ),
+                    nonce=1,
+                ),
+            ],
+            [
+                WithdrawalRequest(
+                    validator_public_key=0x01,
+                    amount=0,
+                    source_address=TestAddress,
+                ),
+                DepositRequest(
+                    pubkey=0x01,
+                    withdrawal_credentials=0x02,
+                    amount=32_000_000_000,
+                    signature=0x03,
+                    index=0x0,
+                ),
+            ],
+            # TODO: on the Engine API, the issue should be detected as an invalid block hash
+            BlockException.INVALID_REQUESTS,
+            id="single_deposit_from_eoa_single_withdrawal_from_eoa_incorrect_order",
+        ),
+    ],
+)
+def test_invalid_deposit_withdrawal_requests(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict[Address, Account],
+    blocks: List[Block],
+):
+    """
+    Negative testing for deposits and withdrawals in the same block.
     """
     blockchain_test(
         genesis_environment=Environment(),

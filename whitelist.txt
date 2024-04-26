@@ -94,6 +94,9 @@ EEST
 eip
 eips
 EIPs
+eip6110
+eip7002
+el
 endianness
 EngineAPI
 enum
@@ -304,6 +307,7 @@ tox
 Tox
 TransactionException
 trie
+triggerable
 tstorage
 tx
 txs
