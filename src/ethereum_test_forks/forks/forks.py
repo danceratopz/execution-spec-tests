@@ -519,3 +519,12 @@ class Prague(Cancun):
         chain requests.
         """
         return True
+
+    @classmethod
+    def engine_new_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        Starting at Prague, new payload calls must use version 4
+        """
+        return 4
