@@ -309,6 +309,43 @@ def txs(
     return [d.transaction() for d in deposit_requests]
 
 
+@pytest.fixture
+def block_requests() -> List[DepositRequest] | None:
+    """List of requests that overwrite the requests in the header. None by default."""
+    return None
+
+
+@pytest.fixture
+def exception() -> BlockException | None:
+    """Block exception expected by the tests. None by default."""
+    return None
+
+
+@pytest.fixture
+def blocks(
+    deposit_requests: List[DepositTransactionBase],
+    block_requests: List[DepositRequest] | None,
+    txs: List[Transaction],
+    exception: BlockException | None,
+) -> List[Block]:
+    """List of blocks that comprise the test."""
+    included_deposits = []
+
+    for d in deposit_requests:
+        included_deposits += d.included_deposits()
+
+    return [
+        Block(
+            txs=txs,
+            header_verify=Header(
+                requests_root=included_deposits,
+                requests=block_requests,
+                exception=exception,
+            ),
+        )
+    ]
+
+
 ################
 #  Test cases  #
 ################
@@ -961,30 +998,17 @@ def txs(
 )
 def test_deposit(
     blockchain_test: BlockchainTestFiller,
-    deposit_requests: List[DepositTransactionBase],
     pre: Dict[Address, Account],
-    txs: List[Transaction],
+    blocks: List[Block],
 ):
     """
     Test making a deposit to the beacon chain deposit contract.
     """
-    included_deposits = []
-
-    for d in deposit_requests:
-        included_deposits += d.included_deposits()
-
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
         post={},
-        blocks=[
-            Block(
-                txs=txs,
-                header_verify=Header(
-                    requests_root=included_deposits,
-                ),
-            )
-        ],
+        blocks=blocks,
     )
 
 
@@ -1226,33 +1250,16 @@ def test_deposit(
 )
 def test_deposit_negative(
     blockchain_test: BlockchainTestFiller,
-    deposit_requests: List[DepositTransactionBase],
-    block_requests: List[DepositRequest],
-    exception: BlockException,
     pre: Dict[Address, Account],
-    txs: List[Transaction],
+    blocks: List[Block],
 ):
     """
     Test producing a block with the incorrect deposits in the body of the block,
     and/or Engine API payload.
     """
-    included_deposits = []
-
-    for d in deposit_requests:
-        included_deposits += d.included_deposits()
-
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
         post={},
-        blocks=[
-            Block(
-                txs=txs,
-                header_verify=Header(
-                    requests_root=included_deposits,
-                ),
-                requests=block_requests,
-                exception=exception,
-            )
-        ],
+        blocks=blocks,
     )
