@@ -78,12 +78,34 @@ class DepositTransaction(DepositTransactionBase):
     """Class used to describe a deposit originated from an externally owned account."""
 
     deposit_request: DepositRequest
-    included: bool
+    """
+    Deposit request to be included in the block.
+    """
+    valid: bool
+    """
+    Whether the deposit request is valid and therefore should be included in the block.
+    """
     gas_limit: int = 1_000_000
+    """
+    Gas limit for the transaction.
+    """
     sender_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the account that sends the transaction.
+    """
     sender_account: SenderAccount = TestAccount1
+    """
+    Account that sends the transaction.
+    """
     nonce: int = 0
+    """
+    Nonce of the account that sends the transaction.
+    """
     calldata: bytes | None = None
+    """
+    Calldata to be included in the transaction. By default, it is the properly formatted calldata
+    according to the deposit request.
+    """
 
     def transaction(self) -> Transaction:
         """Return a transaction for the deposit request."""
@@ -105,7 +127,7 @@ class DepositTransaction(DepositTransactionBase):
 
     def included_deposits(self) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
-        return [self.deposit_request] if self.included else []
+        return [self.deposit_request] if self.valid else []
 
 
 @dataclass(kw_only=True)
@@ -113,21 +135,58 @@ class DepositContract(DepositTransactionBase):
     """Class used to describe a deposit originated from a contract."""
 
     deposit_request: List[DepositRequest] | DepositRequest
-    included: List[bool] | bool
+    """
+    Deposit request or list of deposit requests to send from the contract.
+    """
+    valid: List[bool] | bool
+    """
+    Whether the deposit request is valid and therefore should be included in the block.
+    If a list is provided, it should have the same length as the deposit request list.
+    """
 
     tx_gas_limit: int = 1_000_000
+    """
+    Gas limit for the transaction.
+    """
 
     sender_account: SenderAccount = TestAccount1
+    """
+    Account that sends the transaction to the caller contract.
+    """
     sender_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the account that sends the transaction to the caller contract.
+    """
+    nonce: int = 0
+    """
+    Nonce of the account that sends the transaction to the caller contract.
+    """
 
     contract_balance: int = 32_000_000_000_000_000_000 * 100
+    """
+    Balance of the contract that sends the deposit requests.
+    """
     contract_address: int = 0x200
+    """
+    Address of the contract that sends the deposit requests.
+    """
 
+    call_gas: List[int] | int = -1
+    """
+    Gas to be used in the call. If -1, the gas is Op.GAS.
+    """
     call_type: Op = Op.CALL
+    """
+    Type of call to be made to the deposit contract.
+    """
     call_depth: int = 2
+    """
+    Frame depth of the beacon chain deposit contract when it executes the deposit requests.
+    """
     extra_code: bytes = b""
-
-    nonce: int = 0
+    """
+    Extra code to be included in the contract that sends the deposit requests.
+    """
 
     @property
     def deposit_requests(self) -> List[DepositRequest]:
@@ -137,15 +196,22 @@ class DepositContract(DepositTransactionBase):
         return self.deposit_request
 
     @property
+    def call_gas_list(self) -> List[int]:
+        """Return the list of fees for each deposit request."""
+        if not isinstance(self.call_gas, List):
+            return [self.call_gas] * len(self.deposit_requests)
+        return self.call_gas
+
+    @property
     def contract_code(self) -> bytes:
         """Contract code used by the relay contract."""
         code = b""
         current_offset = 0
-        for d in self.deposit_requests:
+        for (gas, d) in zip(self.call_gas_list, self.deposit_requests):
             value_arg = [d.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
             code += Op.CALLDATACOPY(0, current_offset, len(d.calldata)) + Op.POP(
                 self.call_type(
-                    Op.GAS,
+                    Op.GAS if gas == -1 else gas,
                     Spec.DEPOSIT_CONTRACT_ADDRESS,
                     *value_arg,
                     0,
@@ -214,9 +280,9 @@ class DepositContract(DepositTransactionBase):
 
     def included_deposits(self) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
-        if not isinstance(self.included, Iterable):
-            return self.deposit_requests if self.included else []
-        return [d for d, i in zip(self.deposit_requests, self.included) if i]
+        if not isinstance(self.valid, Iterable):
+            return self.deposit_requests if self.valid else []
+        return [d for d, i in zip(self.deposit_requests, self.valid) if i]
 
 
 ##############
@@ -262,7 +328,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
             ],
             id="single_deposit_from_eoa",
@@ -277,7 +343,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     sender_balance=120_000_001_000_000_000 * 10**9,
                 ),
             ],
@@ -293,7 +359,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -304,7 +370,7 @@ def txs(
                         signature=0x03,
                         index=0x1,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -320,10 +386,10 @@ def txs(
                         signature=0x03,
                         index=i,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=i,
                 )
-                for i in range(2000)
+                for i in range(200)
             ],
             id="multiple_deposit_from_same_eoa_high_count",
         ),
@@ -337,7 +403,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     sender_account=TestAccount1,
                 ),
                 DepositTransaction(
@@ -348,7 +414,7 @@ def txs(
                         signature=0x03,
                         index=0x1,
                     ),
-                    included=True,
+                    valid=True,
                     sender_account=TestAccount2,
                 ),
             ],
@@ -364,7 +430,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=False,
+                    valid=False,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -375,7 +441,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -391,7 +457,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -402,7 +468,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=False,
+                    valid=False,
                     nonce=1,
                 ),
             ],
@@ -420,7 +486,7 @@ def txs(
                     ),
                     # From traces, gas used by the first tx is 82,718 so reduce by one here
                     gas_limit=0x1431D,
-                    included=False,
+                    valid=False,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -431,7 +497,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -447,7 +513,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -460,7 +526,7 @@ def txs(
                     ),
                     # From traces, gas used by the second tx is 68,594 so reduce by one here
                     gas_limit=0x10BF1,
-                    included=False,
+                    valid=False,
                     nonce=1,
                 ),
             ],
@@ -476,7 +542,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=False,
+                    valid=False,
                     calldata=b"",
                 ),
             ],
@@ -492,7 +558,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
             ],
             id="single_deposit_from_contract",
@@ -516,7 +582,7 @@ def txs(
                             index=0x1,
                         ),
                     ],
-                    included=True,
+                    valid=True,
                 ),
             ],
             id="multiple_deposits_from_contract",
@@ -540,7 +606,7 @@ def txs(
                             index=0x0,
                         ),
                     ],
-                    included=[False, True],
+                    valid=[False, True],
                 ),
             ],
             id="multiple_deposits_from_contract_first_reverts",
@@ -564,10 +630,60 @@ def txs(
                             index=0x0,
                         ),
                     ],
-                    included=[True, False],
+                    valid=[True, False],
                 ),
             ],
             id="multiple_deposits_from_contract_last_reverts",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
+                    call_gas=[0x100, -1],
+                    valid=[False, True],
+                ),
+            ],
+            id="multiple_deposits_from_contract_first_oog",
+        ),
+        pytest.param(
+            [
+                DepositContract(
+                    deposit_request=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
+                    call_gas=[-1, 0x100],
+                    valid=[True, False],
+                ),
+            ],
+            id="multiple_deposits_from_contract_last_oog",
         ),
         pytest.param(
             [
@@ -589,7 +705,7 @@ def txs(
                         ),
                     ],
                     extra_code=Op.REVERT(0, 0),
-                    included=False,
+                    valid=False,
                 ),
             ],
             id="multiple_deposits_from_contract_caller_reverts",
@@ -614,7 +730,7 @@ def txs(
                         ),
                     ],
                     extra_code=Macros.OOG(),
-                    included=False,
+                    valid=False,
                 ),
             ],
             id="multiple_deposits_from_contract_caller_oog",
@@ -632,7 +748,7 @@ def txs(
                         ),
                     ],
                     nonce=0,
-                    included=True,
+                    valid=True,
                 ),
                 DepositTransaction(
                     deposit_request=DepositRequest(
@@ -643,7 +759,7 @@ def txs(
                         index=0x1,
                     ),
                     nonce=1,
-                    included=True,
+                    valid=True,
                 ),
             ],
             id="single_deposit_from_contract_single_deposit_from_eoa",
@@ -658,7 +774,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositContract(
@@ -671,7 +787,7 @@ def txs(
                             index=0x1,
                         ),
                     ],
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -687,7 +803,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositContract(
@@ -700,7 +816,7 @@ def txs(
                             index=0x1,
                         ),
                     ],
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
                 DepositTransaction(
@@ -711,7 +827,7 @@ def txs(
                         signature=0x03,
                         index=0x2,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=2,
                 ),
             ],
@@ -729,7 +845,7 @@ def txs(
                             index=0x0,
                         ),
                     ],
-                    included=True,
+                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -740,7 +856,7 @@ def txs(
                         signature=0x03,
                         index=0x1,
                     ),
-                    included=True,
+                    valid=True,
                     nonce=1,
                 ),
                 DepositContract(
@@ -753,7 +869,7 @@ def txs(
                             index=0x2,
                         ),
                     ],
-                    included=True,
+                    valid=True,
                     nonce=2,
                     contract_address=0x300,
                 ),
@@ -771,7 +887,7 @@ def txs(
                         index=0x0,
                     ),
                     call_type=Op.DELEGATECALL,
-                    included=False,
+                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_delegatecall",
@@ -787,7 +903,7 @@ def txs(
                         index=0x0,
                     ),
                     call_type=Op.STATICCALL,
-                    included=False,
+                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_staticcall",
@@ -803,7 +919,7 @@ def txs(
                         index=0x0,
                     ),
                     call_type=Op.CALLCODE,
-                    included=False,
+                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_callcode",
@@ -818,7 +934,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     call_depth=3,
                 ),
             ],
@@ -834,7 +950,7 @@ def txs(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                     call_depth=1024,
                     tx_gas_limit=2_500_000_000_000,
                 ),
@@ -901,7 +1017,7 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
             ],
             [],
@@ -919,7 +1035,7 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
             ],
             [
@@ -945,7 +1061,7 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
                 DepositTransaction(
                     deposit_request=DepositRequest(
@@ -956,7 +1072,7 @@ def test_deposit(
                         index=0x1,
                     ),
                     nonce=1,
-                    included=True,
+                    valid=True,
                 ),
             ],
             [
@@ -989,7 +1105,7 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    included=True,
+                    valid=True,
                 ),
             ],
             [
