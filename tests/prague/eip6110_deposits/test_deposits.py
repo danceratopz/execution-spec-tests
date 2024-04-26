@@ -80,7 +80,7 @@ class DepositTransaction(DepositTransactionBase):
     """
     Deposit request to be included in the block.
     """
-    valid: bool
+    valid: bool = True
     """
     Whether the deposit request is valid and therefore should be included in the block.
     """
@@ -137,7 +137,7 @@ class DepositContract(DepositTransactionBase):
     """
     Deposit request or list of deposit requests to send from the contract.
     """
-    valid: List[bool] | bool
+    valid: List[bool] | bool = True
     """
     Whether the deposit request is valid and therefore should be included in the block.
     If a list is provided, it should have the same length as the deposit request list.
@@ -364,7 +364,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             id="single_deposit_from_eoa",
@@ -379,7 +378,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     sender_balance=120_000_001_000_000_000 * 10**9,
                 ),
             ],
@@ -395,7 +393,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -406,7 +403,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -422,7 +418,6 @@ def blocks(
                         signature=0x03,
                         index=i,
                     ),
-                    valid=True,
                     nonce=i,
                 )
                 for i in range(200)
@@ -439,7 +434,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     sender_account=TestAccount1,
                 ),
                 DepositTransaction(
@@ -450,7 +444,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    valid=True,
                     sender_account=TestAccount2,
                 ),
             ],
@@ -477,7 +470,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -493,7 +485,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -533,7 +524,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -549,7 +539,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -594,7 +583,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             id="single_deposit_from_contract",
@@ -618,7 +606,6 @@ def blocks(
                             index=0x1,
                         ),
                     ],
-                    valid=True,
                 ),
             ],
             id="multiple_deposits_from_contract",
@@ -784,7 +771,6 @@ def blocks(
                         ),
                     ],
                     nonce=0,
-                    valid=True,
                 ),
                 DepositTransaction(
                     deposit_request=DepositRequest(
@@ -795,7 +781,6 @@ def blocks(
                         index=0x1,
                     ),
                     nonce=1,
-                    valid=True,
                 ),
             ],
             id="single_deposit_from_contract_single_deposit_from_eoa",
@@ -810,7 +795,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=0,
                 ),
                 DepositContract(
@@ -823,7 +807,6 @@ def blocks(
                             index=0x1,
                         ),
                     ],
-                    valid=True,
                     nonce=1,
                 ),
             ],
@@ -839,7 +822,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     nonce=0,
                 ),
                 DepositContract(
@@ -852,7 +834,6 @@ def blocks(
                             index=0x1,
                         ),
                     ],
-                    valid=True,
                     nonce=1,
                 ),
                 DepositTransaction(
@@ -863,7 +844,6 @@ def blocks(
                         signature=0x03,
                         index=0x2,
                     ),
-                    valid=True,
                     nonce=2,
                 ),
             ],
@@ -881,7 +861,6 @@ def blocks(
                             index=0x0,
                         ),
                     ],
-                    valid=True,
                     nonce=0,
                 ),
                 DepositTransaction(
@@ -892,7 +871,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    valid=True,
                     nonce=1,
                 ),
                 DepositContract(
@@ -905,7 +883,6 @@ def blocks(
                             index=0x2,
                         ),
                     ],
-                    valid=True,
                     nonce=2,
                     contract_address=0x300,
                 ),
@@ -970,7 +947,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     call_depth=3,
                 ),
             ],
@@ -986,7 +962,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                     call_depth=1024,
                     tx_gas_limit=2_500_000_000_000,
                 ),
@@ -1039,7 +1014,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [],
@@ -1056,7 +1030,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
@@ -1081,7 +1054,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
@@ -1106,7 +1078,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
@@ -1131,7 +1102,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
@@ -1156,7 +1126,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
@@ -1181,7 +1150,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
                 DepositTransaction(
                     deposit_request=DepositRequest(
@@ -1192,7 +1160,6 @@ def test_deposit(
                         index=0x1,
                     ),
                     nonce=1,
-                    valid=True,
                 ),
             ],
             [
@@ -1224,7 +1191,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=True,
                 ),
             ],
             [
