@@ -4,10 +4,10 @@ abstract: Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips
 
 """  # noqa: E501
 
-from abc import ABC
 from dataclasses import dataclass
+from functools import cached_property
 from itertools import count
-from typing import Dict, List
+from typing import Callable, ClassVar, Dict, List
 
 import pytest
 
@@ -28,8 +28,8 @@ from ethereum_test_tools import (
     TestPrivateKey,
     TestPrivateKey2,
     Transaction,
-    WithdrawalRequest,
 )
+from ethereum_test_tools import WithdrawalRequest as WithdrawalRequestBase
 
 from .spec import Spec, ref_spec_7002
 
@@ -51,44 +51,62 @@ TestAccount1 = SenderAccount(TestAddress, TestPrivateKey)
 TestAccount2 = SenderAccount(TestAddress2, TestPrivateKey2)
 
 
-class WithdrawalRequestTransactionBase(ABC):
+class WithdrawalRequest(WithdrawalRequestBase):
     """
-    Base class for all types of withdrawal transactions we want to test.
+    Class used to describe a withdrawal request in a test.
     """
 
-    def transaction(self) -> Transaction:
-        """Return a transaction for the withdrawal request."""
-        raise NotImplementedError
-
-    def pre(self) -> Dict[Address, Account]:
-        """Return the pre-state of the account."""
-        raise NotImplementedError
-
-    def valid_withdrawal_requests(self, current_block_fee: int) -> List[WithdrawalRequest]:
-        """Return the list of withdrawal requests that should be valid in the block."""
-        raise NotImplementedError
-
-
-@dataclass(kw_only=True)
-class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
-    """Class used to describe a withdrawal request originated from an externally owned account."""
-
-    withdrawal_request: WithdrawalRequest
+    fee: int = 0
     """
-    Withdrawal request to be requested by the transaction.
+    Fee to be paid for the withdrawal request.
     """
     valid: bool = True
     """
     Whether the withdrawal request is valid or not.
     """
-    fee: int = 0
-    """
-    Fee to be paid for the withdrawal request.
-    """
     gas_limit: int = 1_000_000
     """
-    Gas limit for the transaction.
+    Gas limit for the call.
     """
+    calldata_modifier: Callable[[bytes], bytes] = lambda x: x
+    """
+    Calldata modifier function.
+    """
+
+    interaction_contract_address: ClassVar[Address] = Address(
+        Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
+    )
+
+    @property
+    def value(self) -> int:
+        """
+        Returns the value of the withdrawal request.
+        """
+        return self.fee
+
+    @cached_property
+    def calldata(self) -> bytes:
+        """
+        Returns the calldata needed to call the withdrawal request contract and make the
+        withdrawal.
+        """
+        return self.calldata_modifier(
+            self.validator_public_key + self.amount.to_bytes(8, byteorder="big")
+        )
+
+    def with_source_address(self, source_address: Address) -> "WithdrawalRequest":
+        """
+        Return a new instance of the withdrawal request with the source address set.
+        """
+        return self.copy(source_address=source_address)
+
+
+@dataclass(kw_only=True)
+class WithdrawalRequestInteractionBase:
+    """
+    Base class for all types of withdrawal transactions we want to test.
+    """
+
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     """
     Balance of the account that sends the transaction.
@@ -101,72 +119,70 @@ class WithdrawalRequestTransaction(WithdrawalRequestTransactionBase):
     """
     Nonce of the sender account.
     """
-    calldata: bytes | None = None
+
+    @property
+    def transaction(self) -> Transaction:
+        """Return a transaction for the withdrawal request."""
+        raise NotImplementedError
+
+    @property
+    def pre(self) -> Dict[Address, Account]:
+        """Return the pre-state of the account."""
+        raise NotImplementedError
+
+    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
+        """Return the list of withdrawal requests that should be valid in the block."""
+        raise NotImplementedError
+
+
+@dataclass(kw_only=True)
+class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
+    """Class used to describe a withdrawal request originated from an externally owned account."""
+
+    request: WithdrawalRequest
     """
-    Calldata to be used in the transaction. By default it automatically generates the calldata
-    according to the withdrawal request.
+    Withdrawal request to be requested by the transaction.
     """
 
+    @property
     def transaction(self) -> Transaction:
         """Return a transaction for the withdrawal request."""
         return Transaction(
             nonce=self.nonce,
-            gas_limit=self.gas_limit,
+            gas_limit=self.request.gas_limit,
             gas_price=0x07,
-            to=Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-            value=self.fee,
-            data=self.calldata if self.calldata is not None else self.withdrawal_request.calldata,
+            to=self.request.interaction_contract_address,
+            value=self.request.value,
+            data=self.request.calldata,
             secret_key=self.sender_account.key,
         )
 
+    @property
     def pre(self) -> Dict[Address, Account]:
         """Return the pre-state of the account."""
         return {
             self.sender_account.address: Account(balance=self.sender_balance),
         }
 
-    def valid_withdrawal_requests(self, current_block_fee: int) -> List[WithdrawalRequest]:
+    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
-        if self.valid and self.fee >= current_block_fee:
-            return [self.withdrawal_request.with_source_address(self.sender_account.address)]
+        if self.request.valid and self.request.fee >= current_minimum_fee:
+            return [self.request.with_source_address(self.sender_account.address)]
         return []
 
 
 @dataclass(kw_only=True)
-class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
+class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """Class used to describe a deposit originated from a contract."""
 
-    withdrawal_request: List[WithdrawalRequest] | WithdrawalRequest
+    request: List[WithdrawalRequest] | WithdrawalRequest
     """
     Withdrawal request or list of withdrawal requests to be requested by the contract.
-    """
-    valid: List[bool] | bool = True
-    """
-    Whether the withdrawal request is valid or not. If a list, it should have the same length as
-    `withdrawal_request`.
-    """
-    fee: List[int] | int = 0
-    """
-    Fee to be paid for each withdrawal request. If a list, it should have the same length as
-    `withdrawal_request`.
     """
 
     tx_gas_limit: int = 1_000_000
     """
     Gas limit for the transaction.
-    """
-
-    sender_account: SenderAccount = TestAccount1
-    """
-    Account that will send the transaction (not the actual caller to the pre-deploy contract)
-    """
-    sender_balance: int = 32_000_000_000_000_000_000 * 100
-    """
-    Balance of the account that sends the transaction.
-    """
-    nonce: int = 0
-    """
-    Nonce of the sender account.
     """
 
     contract_balance: int = 32_000_000_000_000_000_000 * 100
@@ -178,10 +194,6 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
     Address of the contract that will make the call to the pre-deploy contract.
     """
 
-    call_gas: List[int] | int = -1
-    """
-    Gas to be used in the call. If -1, the gas is Op.GAS.
-    """
     call_type: Op = Op.CALL
     """
     Type of call to be used to make the withdrawal request.
@@ -196,54 +208,34 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
     """
 
     @property
-    def withdrawal_requests(self) -> List[WithdrawalRequest]:
+    def requests(self) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests."""
-        if not isinstance(self.withdrawal_request, List):
-            return [self.withdrawal_request]
-        return self.withdrawal_request
-
-    @property
-    def fees(self) -> List[int]:
-        """Return the list of fees for each withdrawal request."""
-        if not isinstance(self.fee, List):
-            return [self.fee] * len(self.withdrawal_requests)
-        return self.fee
-
-    @property
-    def valid_list(self) -> List[bool]:
-        """Return the list of fees for each withdrawal request."""
-        if not isinstance(self.valid, List):
-            return [self.valid] * len(self.withdrawal_requests)
-        return self.valid
-
-    @property
-    def call_gas_list(self) -> List[int]:
-        """Return the list of fees for each withdrawal request."""
-        if not isinstance(self.call_gas, List):
-            return [self.call_gas] * len(self.withdrawal_requests)
-        return self.call_gas
+        if not isinstance(self.request, List):
+            return [self.request]
+        return self.request
 
     @property
     def contract_code(self) -> bytes:
         """Contract code used by the relay contract."""
         code = b""
         current_offset = 0
-        for fee, gas, w in zip(self.fees, self.call_gas_list, self.withdrawal_requests):
-            value_arg = [fee] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            code += Op.CALLDATACOPY(0, current_offset, len(w.calldata)) + Op.POP(
+        for r in self.requests:
+            value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
                 self.call_type(
-                    Op.GAS if gas == -1 else gas,
-                    Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                    Op.GAS if r.gas_limit == -1 else r.gas_limit,
+                    r.interaction_contract_address,
                     *value_arg,
                     0,
-                    len(w.calldata),
+                    len(r.calldata),
                     0,
                     0,
                 )
             )
-            current_offset += len(w.calldata)
+            current_offset += len(r.calldata)
         return code + self.extra_code
 
+    @property
     def transaction(self) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
@@ -252,7 +244,7 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
             gas_price=0x07,
             to=self.entry_address,
             value=0,
-            data=b"".join(w.calldata for w in self.withdrawal_requests),
+            data=b"".join(w.calldata for w in self.requests),
             secret_key=self.sender_account.key,
         )
 
@@ -290,6 +282,7 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
             for i in range(1, self.call_depth - 1)
         }
 
+    @property
     def pre(self) -> Dict[Address, Account]:
         """Return the pre-state of the account."""
         return {
@@ -299,12 +292,12 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
             ),
         } | self.extra_contracts
 
-    def valid_withdrawal_requests(self, current_block_fee: int) -> List[WithdrawalRequest]:
+    def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
         valid_requests: List[WithdrawalRequest] = []
-        for w, fee, valid in zip(self.withdrawal_requests, self.fees, self.valid_list):
-            if valid and fee >= current_block_fee:
-                valid_requests.append(w.with_source_address(Address(self.contract_address)))
+        for r in self.requests:
+            if r.valid and r.value >= current_minimum_fee:
+                valid_requests.append(r.with_source_address(Address(self.contract_address)))
         return valid_requests
 
 
@@ -314,8 +307,8 @@ class WithdrawalRequestContract(WithdrawalRequestTransactionBase):
 
 
 @pytest.fixture
-def included_withdrawal_requests(
-    blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
+def included_requests(
+    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
 ) -> List[List[WithdrawalRequest]]:
     """
     Return the list of withdrawal requests that should be included in each block.
@@ -325,12 +318,12 @@ def included_withdrawal_requests(
     per_block_included_requests: List[List[WithdrawalRequest]] = []
     for block_withdrawal_requests in blocks_withdrawal_requests:
         # Get fee for the current block
-        current_block_fee = Spec.get_fee(excess_withdrawal_requests)
+        current_minimum_fee = Spec.get_fee(excess_withdrawal_requests)
 
         # With the fee, get the valid withdrawal requests for the current block
         current_block_requests = []
         for w in block_withdrawal_requests:
-            current_block_requests += w.valid_withdrawal_requests(current_block_fee)
+            current_block_requests += w.valid_requests(current_minimum_fee)
 
         # Get the withdrawal requests that should be included in the block
         pending_requests = carry_over_requests + current_block_requests
@@ -349,7 +342,7 @@ def included_withdrawal_requests(
 
 @pytest.fixture
 def pre(
-    blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
+    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
 ) -> Dict[Address, Account]:
     """
     Initial state of the accounts. Every withdrawal transaction defines their own pre-state
@@ -358,26 +351,26 @@ def pre(
     pre = {}
     for b in blocks_withdrawal_requests:
         for w in b:
-            pre.update(w.pre())
+            pre.update(w.pre)
     return pre
 
 
 @pytest.fixture
 def blocks(
-    blocks_withdrawal_requests: List[List[WithdrawalRequestTransactionBase]],
-    included_withdrawal_requests: List[List[WithdrawalRequest]],
+    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
+    included_requests: List[List[WithdrawalRequest]],
 ) -> List[Block]:
     """
     Return the list of blocks that should be included in the test.
     """
     blocks: List[Block] = []
     for i in range(len(blocks_withdrawal_requests)):
-        txs = [w.transaction() for w in blocks_withdrawal_requests[i]]
+        txs = [w.transaction for w in blocks_withdrawal_requests[i]]
         blocks.append(
             Block(
                 txs=txs,
                 header_verify=Header(
-                    requests_root=included_withdrawal_requests[i],
+                    requests_root=included_requests[i],
                 ),
             )
         )
@@ -430,14 +423,14 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
         blocks.append(
             [
                 WithdrawalRequestContract(
-                    withdrawal_request=[
+                    request=[
                         WithdrawalRequest(
                             validator_public_key=i,
                             amount=0,
+                            fee=fee,
                         )
                         for i in range(withdrawal_index, withdrawal_index + withdrawals_required)
                     ],
-                    fee=fee,
                     # Increment the contract address to avoid overwriting the previous one
                     contract_address=0x200 + (tx_nonce * 0x100),
                     nonce=tx_nonce,
@@ -464,11 +457,11 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                 ],
             ],
@@ -479,11 +472,11 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=0,
                         ),
-                        fee=0,
                     ),
                 ],
             ],
@@ -494,16 +487,13 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            calldata_modifier=lambda x: x[:-1],
+                            valid=False,
                         ),
-                        calldata=WithdrawalRequest(
-                            validator_public_key=0x01,
-                            amount=0,
-                        ).calldata[:-1],
-                        fee=Spec.get_fee(0),
-                        valid=False,
                     ),
                 ],
             ],
@@ -514,17 +504,13 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            calldata_modifier=lambda x: x + b"\x00",
+                            valid=False,
                         ),
-                        calldata=WithdrawalRequest(
-                            validator_public_key=0x01,
-                            amount=0,
-                        ).calldata
-                        + b"\x00",
-                        fee=Spec.get_fee(0),
-                        valid=False,
                     ),
                 ],
             ],
@@ -535,18 +521,18 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=Spec.MAX_AMOUNT - 1,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         nonce=1,
                     ),
                 ],
@@ -558,18 +544,18 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=Spec.MAX_AMOUNT - 1,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         sender_account=TestAccount2,
                     ),
                 ],
@@ -581,11 +567,11 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=i + 1,
                             amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
@@ -598,18 +584,18 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=0,
                         ),
-                        fee=0,
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=Spec.MAX_AMOUNT - 1,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         nonce=1,
                     ),
                 ],
@@ -621,18 +607,18 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=Spec.MAX_AMOUNT - 1,
+                            fee=0,
                         ),
-                        fee=0,
                         nonce=1,
                     ),
                 ],
@@ -644,21 +630,21 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            # Value obtained from trace minus one
+                            gas_limit=114_247 - 1,
+                            valid=False,
                         ),
-                        fee=Spec.get_fee(0),
-                        # Value obtained from trace minus one
-                        gas_limit=114_247 - 1,
-                        valid=False,
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         nonce=1,
                     ),
                 ],
@@ -670,22 +656,22 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x02,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            # Value obtained from trace minus one
+                            gas_limit=80_047 - 1,
+                            valid=False,
                         ),
-                        fee=Spec.get_fee(0),
-                        # Value obtained from trace minus one
-                        gas_limit=80_047 - 1,
                         nonce=1,
-                        valid=False,
                     ),
                 ],
             ],
@@ -696,11 +682,11 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestTransaction(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=i + 1,
                             amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                         nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK * 2)
@@ -717,11 +703,11 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
                         ),
-                        fee=Spec.get_fee(0),
                     ),
                 ],
             ],
@@ -732,14 +718,14 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
                             )
                             for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                         ],
-                        fee=Spec.get_fee(0),
                     ),
                 ],
             ],
@@ -750,14 +736,21 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
+                            WithdrawalRequest(
+                                validator_public_key=1,
+                                amount=Spec.MAX_AMOUNT,
+                                fee=0,
+                            )
+                        ]
+                        + [
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
                             )
-                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                            for i in range(1, Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                         ],
-                        fee=[0] + [Spec.get_fee(0)] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
                     ),
                 ],
             ],
@@ -768,14 +761,23 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
                             )
-                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1)
+                        ]
+                        + [
+                            WithdrawalRequest(
+                                validator_public_key=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                                amount=Spec.MAX_AMOUNT - 1
+                                if (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) % 2 == 0
+                                else 0,
+                                fee=0,
+                            )
                         ],
-                        fee=[Spec.get_fee(0)] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [0],
                     ),
                 ],
             ],
@@ -786,16 +788,25 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
+                            WithdrawalRequest(
+                                validator_public_key=1,
+                                amount=Spec.MAX_AMOUNT - 1,
+                                gas_limit=100,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
+                        ]
+                        + [
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                gas_limit=1_000_000,
+                                fee=Spec.get_fee(0),
+                                valid=True,
                             )
-                            for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                            for i in range(1, Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                         ],
-                        fee=Spec.get_fee(0),
-                        call_gas=[0x100] + [-1] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
-                        valid=[False] + [True] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
                     ),
                 ],
             ],
@@ -806,16 +817,25 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
+                                gas_limit=1_000_000,
+                                valid=True,
                             )
                             for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
+                        ]
+                        + [
+                            WithdrawalRequest(
+                                validator_public_key=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                                amount=Spec.MAX_AMOUNT - 1,
+                                gas_limit=100,
+                                fee=Spec.get_fee(0),
+                                valid=False,
+                            )
                         ],
-                        fee=Spec.get_fee(0),
-                        call_gas=[-1] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [0x100],
-                        valid=[True] * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) + [False],
                     ),
                 ],
             ],
@@ -826,15 +846,15 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
                             )
                             for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                         ],
-                        fee=Spec.get_fee(0),
-                        valid=False,
                         extra_code=Op.REVERT(0, 0),
                     ),
                 ],
@@ -846,15 +866,15 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=[
+                        request=[
                             WithdrawalRequest(
                                 validator_public_key=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
+                                fee=Spec.get_fee(0),
+                                valid=False,
                             )
                             for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                         ],
-                        fee=Spec.get_fee(0),
-                        valid=False,
                         extra_code=Macros.OOG(),
                     ),
                 ],
@@ -871,37 +891,37 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 # Block 1
                 [
                     WithdrawalRequestContract(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            valid=False,
                         ),
-                        fee=Spec.get_fee(0),
                         call_type=Op.DELEGATECALL,
                         contract_address=0x200,
                         nonce=0,
-                        valid=False,
                     ),
                     WithdrawalRequestContract(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            valid=False,
                         ),
-                        fee=Spec.get_fee(0),
                         call_type=Op.STATICCALL,
                         contract_address=0x300,
                         nonce=1,
-                        valid=False,
                     ),
                     WithdrawalRequestContract(
-                        withdrawal_request=WithdrawalRequest(
+                        request=WithdrawalRequest(
                             validator_public_key=0x01,
                             amount=0,
+                            fee=Spec.get_fee(0),
+                            valid=False,
                         ),
-                        fee=Spec.get_fee(0),
                         call_type=Op.CALLCODE,
                         contract_address=0x400,
                         nonce=2,
-                        valid=False,
                     ),
                 ],
             ],
@@ -926,7 +946,7 @@ def test_withdrawal_requests(
 
 
 @pytest.mark.parametrize(
-    "withdrawal_requests,block_requests,exception",
+    "withdrawal_requests,block_body_override_requests,exception",
     [
         pytest.param(
             [],
@@ -943,11 +963,11 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                 ),
             ],
             [],
@@ -957,11 +977,11 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                 ),
             ],
             [
@@ -977,11 +997,11 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                 ),
             ],
             [
@@ -997,11 +1017,11 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                 ),
             ],
             [
@@ -1017,19 +1037,19 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                     nonce=0,
                 ),
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x02,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                     nonce=1,
                 ),
             ],
@@ -1051,11 +1071,11 @@ def test_withdrawal_requests(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=Spec.get_fee(0),
                     ),
-                    fee=Spec.get_fee(0),
                 ),
             ],
             [
@@ -1077,8 +1097,8 @@ def test_withdrawal_requests(
 )
 def test_withdrawal_requests_negative(
     blockchain_test: BlockchainTestFiller,
-    withdrawal_requests: List[WithdrawalRequestTransactionBase],
-    block_requests: List[WithdrawalRequest],
+    withdrawal_requests: List[WithdrawalRequestInteractionBase],
+    block_body_override_requests: List[WithdrawalRequest],
     exception: BlockException,
 ):
     """
@@ -1089,12 +1109,12 @@ def test_withdrawal_requests_negative(
     fee = 1
     current_block_requests = []
     for w in withdrawal_requests:
-        current_block_requests += w.valid_withdrawal_requests(fee)
-    included_withdrawal_requests = current_block_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
+        current_block_requests += w.valid_requests(fee)
+    included_requests = current_block_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
 
     pre = {}
     for w in withdrawal_requests:
-        pre.update(w.pre())
+        pre.update(w.pre)
 
     blockchain_test(
         genesis_environment=Environment(),
@@ -1102,11 +1122,11 @@ def test_withdrawal_requests_negative(
         post={},
         blocks=[
             Block(
-                txs=[w.transaction() for w in withdrawal_requests],
+                txs=[w.transaction for w in withdrawal_requests],
                 header_verify=Header(
-                    requests_root=included_withdrawal_requests,
+                    requests_root=included_requests,
                 ),
-                requests=block_requests,
+                requests=block_body_override_requests,
                 exception=exception,
             )
         ],
