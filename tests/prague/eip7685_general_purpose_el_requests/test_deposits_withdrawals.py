@@ -15,7 +15,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    DepositRequest,
     Environment,
     Header,
 )
@@ -26,20 +25,21 @@ from ethereum_test_tools import (
     TestPrivateKey,
     TestPrivateKey2,
     Transaction,
-    WithdrawalRequest,
 )
 
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
 from ..eip6110_deposits.test_deposits import (
     DepositContract,
+    DepositInteractionBase,
+    DepositRequest,
     DepositTransaction,
-    DepositTransactionBase,
 )
 from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec_EIP7002
 from ..eip7002_el_triggerable_withdrawals.test_withdrawal_requests import (
+    WithdrawalRequest,
     WithdrawalRequestContract,
+    WithdrawalRequestInteractionBase,
     WithdrawalRequestTransaction,
-    WithdrawalRequestTransactionBase,
 )
 from .spec import ref_spec_7685
 
@@ -67,7 +67,7 @@ TestAccount2 = SenderAccount(TestAddress2, TestPrivateKey2)
 
 @pytest.fixture
 def pre(
-    requests: List[DepositTransactionBase | WithdrawalRequestTransactionBase],
+    requests: List[DepositInteractionBase | WithdrawalRequestInteractionBase],
 ) -> Dict[Address, Account]:
     """
     Initial state of the accounts. Every deposit transaction defines their own pre-state
@@ -75,20 +75,20 @@ def pre(
     """
     pre = {}
     for d in requests:
-        pre.update(d.pre())
+        pre.update(d.pre)
     return pre
 
 
 @pytest.fixture
 def txs(
-    requests: List[DepositTransactionBase | WithdrawalRequestTransactionBase],
+    requests: List[DepositInteractionBase | WithdrawalRequestInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
-    return [d.transaction() for d in requests]
+    return [d.transaction for d in requests]
 
 
 @pytest.fixture
-def block_requests() -> List[DepositRequest] | None:
+def block_body_override_requests() -> List[DepositRequest] | None:
     """List of requests that overwrite the requests in the header. None by default."""
     return None
 
@@ -101,8 +101,8 @@ def exception() -> BlockException | None:
 
 @pytest.fixture
 def blocks(
-    requests: List[DepositTransactionBase | WithdrawalRequestTransactionBase],
-    block_requests: List[DepositRequest | WithdrawalRequest] | None,
+    requests: List[DepositInteractionBase | WithdrawalRequestInteractionBase],
+    block_body_override_requests: List[DepositRequest | WithdrawalRequest] | None,
     txs: List[Transaction],
     exception: BlockException | None,
 ) -> List[Block]:
@@ -112,10 +112,10 @@ def blocks(
     # Single block therefore base fee
     withdrawal_request_fee = 1
     for r in requests:
-        if isinstance(r, DepositTransactionBase):
-            included_deposit_requests += r.included_deposits()
-        elif isinstance(r, WithdrawalRequestTransactionBase):
-            included_withdrawal_requests += r.valid_withdrawal_requests(withdrawal_request_fee)
+        if isinstance(r, DepositInteractionBase):
+            included_deposit_requests += r.valid_requests(10**18)
+        elif isinstance(r, WithdrawalRequestInteractionBase):
+            included_withdrawal_requests += r.valid_requests(withdrawal_request_fee)
 
     return [
         Block(
@@ -123,7 +123,7 @@ def blocks(
             header_verify=Header(
                 requests_root=included_deposit_requests + included_withdrawal_requests,
             ),
-            requests=block_requests,
+            requests=block_body_override_requests,
             exception=exception,
         )
     ]
@@ -140,7 +140,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -150,11 +150,11 @@ def blocks(
                     nonce=0,
                 ),
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=1,
                 ),
             ],
@@ -163,15 +163,15 @@ def blocks(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -186,7 +186,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -196,15 +196,15 @@ def blocks(
                     nonce=0,
                 ),
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=1,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -219,15 +219,15 @@ def blocks(
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -237,11 +237,11 @@ def blocks(
                     nonce=1,
                 ),
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=1,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=2,
                 ),
             ],
@@ -250,7 +250,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -261,11 +261,11 @@ def blocks(
                     contract_address=0x200,
                 ),
                 WithdrawalRequestContract(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=1,
                     contract_address=0x300,
                 ),
@@ -275,16 +275,16 @@ def blocks(
         pytest.param(
             [
                 WithdrawalRequestContract(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=0,
                     contract_address=0x300,
                 ),
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -434,20 +434,20 @@ def test_valid_deposit_withdrawal_request_from_same_tx(
 
 
 @pytest.mark.parametrize(
-    "requests,block_requests,exception",
+    "requests,block_body_override_requests,exception",
     [
         pytest.param(
             [
                 WithdrawalRequestTransaction(
-                    withdrawal_request=WithdrawalRequest(
+                    request=WithdrawalRequest(
                         validator_public_key=0x01,
                         amount=0,
+                        fee=1,
                     ),
-                    fee=1,
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
