@@ -3,23 +3,16 @@ abstract: Tests [EIP-6110: Supply validator deposits on chain](https://eips.ethe
     Test [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
 """  # noqa: E501
 
-from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from functools import cached_property
+from hashlib import sha256 as sha256_hashlib
+from typing import Callable, ClassVar, Dict, List
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Address,
-    Block,
-    BlockchainTestFiller,
-    BlockException,
-    DepositRequest,
-    Environment,
-    Header,
-    Macros,
-)
+from ethereum_test_tools import Account, Address, Block, BlockchainTestFiller, BlockException
+from ethereum_test_tools import DepositRequest as DepositRequestBase
+from ethereum_test_tools import Environment, Hash, Header, Macros
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     TestAddress,
@@ -42,6 +35,13 @@ pytestmark = pytest.mark.valid_from("Prague")
 #############
 
 
+def sha256(*args: bytes) -> bytes:
+    """
+    Returns the sha256 hash of the input.
+    """
+    return sha256_hashlib(b"".join(args)).digest()
+
+
 @dataclass
 class SenderAccount:
     """Test sender account descriptor."""
@@ -54,40 +54,82 @@ TestAccount1 = SenderAccount(TestAddress, TestPrivateKey)
 TestAccount2 = SenderAccount(TestAddress2, TestPrivateKey2)
 
 
-class DepositTransactionBase(ABC):
+class DepositRequest(DepositRequestBase):
+    """Deposit request descriptor."""
+
+    valid: bool = True
+    """
+    Whether the deposit request is valid or not.
+    """
+    gas_limit: int = 1_000_000
+    """
+    Gas limit for the call.
+    """
+    calldata_modifier: Callable[[bytes], bytes] = lambda x: x
+    """
+    Calldata modifier function.
+    """
+
+    interaction_contract_address: ClassVar[Address] = Address(Spec.DEPOSIT_CONTRACT_ADDRESS)
+
+    @cached_property
+    def value(self) -> int:
+        """
+        Returns the value of the deposit transaction.
+        """
+        return self.amount * 10**9
+
+    @cached_property
+    def deposit_data_root(self) -> Hash:
+        """
+        Returns the deposit data root of the deposit.
+        """
+        pubkey_root = sha256(self.pubkey, b"\x00" * 16)
+        signature_root = sha256(
+            sha256(self.signature[:64]), sha256(self.signature[64:], b"\x00" * 32)
+        )
+        pubkey_withdrawal_root = sha256(pubkey_root, self.withdrawal_credentials)
+        amount_bytes = (self.amount).to_bytes(32, byteorder="little")
+        amount_signature_root = sha256(amount_bytes, signature_root)
+        return Hash(sha256(pubkey_withdrawal_root, amount_signature_root))
+
+    @cached_property
+    def calldata(self) -> bytes:
+        """
+        Returns the calldata needed to call the beacon chain deposit contract and make the deposit.
+
+        deposit(
+            bytes calldata pubkey,
+            bytes calldata withdrawal_credentials,
+            bytes calldata signature,
+            bytes32 deposit_data_root
+        )
+        """
+        offset_length = 32
+        pubkey_offset = offset_length * 3 + len(self.deposit_data_root)
+        withdrawal_offset = pubkey_offset + offset_length + len(self.pubkey)
+        signature_offset = withdrawal_offset + offset_length + len(self.withdrawal_credentials)
+        return self.calldata_modifier(
+            b"\x22\x89\x51\x18"
+            + pubkey_offset.to_bytes(offset_length, byteorder="big")
+            + withdrawal_offset.to_bytes(offset_length, byteorder="big")
+            + signature_offset.to_bytes(offset_length, byteorder="big")
+            + self.deposit_data_root
+            + len(self.pubkey).to_bytes(offset_length, byteorder="big")
+            + self.pubkey
+            + len(self.withdrawal_credentials).to_bytes(offset_length, byteorder="big")
+            + self.withdrawal_credentials
+            + len(self.signature).to_bytes(offset_length, byteorder="big")
+            + self.signature
+        )
+
+
+@dataclass(kw_only=True)
+class DepositInteractionBase:
     """
     Base class for all types of deposit transactions we want to test.
     """
 
-    def transaction(self) -> Transaction:
-        """Return a transaction for the deposit request."""
-        raise NotImplementedError
-
-    def pre(self) -> Dict[Address, Account]:
-        """Return the pre-state of the account."""
-        raise NotImplementedError
-
-    def included_deposits(self) -> List[DepositRequest]:
-        """Return the list of deposit requests that should be included in the block."""
-        raise NotImplementedError
-
-
-@dataclass(kw_only=True)
-class DepositTransaction(DepositTransactionBase):
-    """Class used to describe a deposit originated from an externally owned account."""
-
-    deposit_request: DepositRequest
-    """
-    Deposit request to be included in the block.
-    """
-    valid: bool = True
-    """
-    Whether the deposit request is valid and therefore should be included in the block.
-    """
-    gas_limit: int = 1_000_000
-    """
-    Gas limit for the transaction.
-    """
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     """
     Balance of the account that sends the transaction.
@@ -100,65 +142,72 @@ class DepositTransaction(DepositTransactionBase):
     """
     Nonce of the account that sends the transaction.
     """
-    calldata: bytes | None = None
+
+    @property
+    def transaction(self) -> Transaction:
+        """Return a transaction for the deposit request."""
+        raise NotImplementedError
+
+    @property
+    def pre(self) -> Dict[Address, Account]:
+        """Return the pre-state of the account."""
+        raise NotImplementedError
+
+    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
+        """Return the list of deposit requests that should be included in the block."""
+        raise NotImplementedError
+
+
+@dataclass(kw_only=True)
+class DepositTransaction(DepositInteractionBase):
+    """Class used to describe a deposit originated from an externally owned account."""
+
+    request: DepositRequest
     """
-    Calldata to be included in the transaction. By default, it is the properly formatted calldata
-    according to the deposit request.
+    Deposit request to be included in the block.
     """
 
+    @property
     def transaction(self) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
             nonce=self.nonce,
-            gas_limit=self.gas_limit,
+            gas_limit=self.request.gas_limit,
             gas_price=0x07,
-            to=Spec.DEPOSIT_CONTRACT_ADDRESS,
-            value=self.deposit_request.value,
-            data=self.calldata if self.calldata is not None else self.deposit_request.calldata,
+            to=self.request.interaction_contract_address,
+            value=self.request.value,
+            data=self.request.calldata,
             secret_key=self.sender_account.key,
         )
 
+    @property
     def pre(self) -> Dict[Address, Account]:
         """Return the pre-state of the account."""
         return {
             self.sender_account.address: Account(balance=self.sender_balance),
         }
 
-    def included_deposits(self) -> List[DepositRequest]:
+    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
-        return [self.deposit_request] if self.valid else []
+        return (
+            [self.request]
+            if self.request.valid and self.request.value >= current_minimum_fee
+            else []
+        )
 
 
 @dataclass(kw_only=True)
-class DepositContract(DepositTransactionBase):
+class DepositContract(DepositInteractionBase):
     """Class used to describe a deposit originated from a contract."""
 
-    deposit_request: List[DepositRequest] | DepositRequest
+    request: List[DepositRequest] | DepositRequest
     """
     Deposit request or list of deposit requests to send from the contract.
-    """
-    valid: List[bool] | bool = True
-    """
-    Whether the deposit request is valid and therefore should be included in the block.
-    If a list is provided, it should have the same length as the deposit request list.
     """
 
     tx_gas_limit: int = 1_000_000
     """
     Gas limit for the transaction.
-    """
-
-    sender_account: SenderAccount = TestAccount1
-    """
-    Account that sends the transaction to the caller contract.
-    """
-    sender_balance: int = 32_000_000_000_000_000_000 * 100
-    """
-    Balance of the account that sends the transaction to the caller contract.
-    """
-    nonce: int = 0
-    """
-    Nonce of the account that sends the transaction to the caller contract.
     """
 
     contract_balance: int = 32_000_000_000_000_000_000 * 100
@@ -170,10 +219,6 @@ class DepositContract(DepositTransactionBase):
     Address of the contract that sends the deposit requests.
     """
 
-    call_gas: List[int] | int = -1
-    """
-    Gas to be used in the call. If -1, the gas is Op.GAS.
-    """
     call_type: Op = Op.CALL
     """
     Type of call to be made to the deposit contract.
@@ -188,40 +233,34 @@ class DepositContract(DepositTransactionBase):
     """
 
     @property
-    def deposit_requests(self) -> List[DepositRequest]:
+    def requests(self) -> List[DepositRequest]:
         """Return the list of deposit requests."""
-        if not isinstance(self.deposit_request, List):
-            return [self.deposit_request]
-        return self.deposit_request
-
-    @property
-    def call_gas_list(self) -> List[int]:
-        """Return the list of fees for each deposit request."""
-        if not isinstance(self.call_gas, List):
-            return [self.call_gas] * len(self.deposit_requests)
-        return self.call_gas
+        if not isinstance(self.request, List):
+            return [self.request]
+        return self.request
 
     @property
     def contract_code(self) -> bytes:
         """Contract code used by the relay contract."""
         code = b""
         current_offset = 0
-        for (gas, d) in zip(self.call_gas_list, self.deposit_requests):
-            value_arg = [d.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            code += Op.CALLDATACOPY(0, current_offset, len(d.calldata)) + Op.POP(
+        for r in self.requests:
+            value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
+            code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
                 self.call_type(
-                    Op.GAS if gas == -1 else gas,
-                    Spec.DEPOSIT_CONTRACT_ADDRESS,
+                    Op.GAS if r.gas_limit == -1 else r.gas_limit,
+                    r.interaction_contract_address,
                     *value_arg,
                     0,
-                    len(d.calldata),
+                    len(r.calldata),
                     0,
                     0,
                 )
             )
-            current_offset += len(d.calldata)
+            current_offset += len(r.calldata)
         return code + self.extra_code
 
+    @property
     def transaction(self) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
@@ -230,7 +269,7 @@ class DepositContract(DepositTransactionBase):
             gas_price=0x07,
             to=self.entry_address,
             value=0,
-            data=b"".join(d.calldata for d in self.deposit_requests),
+            data=b"".join(d.calldata for d in self.requests),
             secret_key=self.sender_account.key,
         )
 
@@ -268,6 +307,7 @@ class DepositContract(DepositTransactionBase):
             for i in range(1, self.call_depth - 1)
         }
 
+    @property
     def pre(self) -> Dict[Address, Account]:
         """Return the pre-state of the account."""
         return {
@@ -277,11 +317,9 @@ class DepositContract(DepositTransactionBase):
             ),
         } | self.extra_contracts
 
-    def included_deposits(self) -> List[DepositRequest]:
+    def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
-        if not isinstance(self.valid, Iterable):
-            return self.deposit_requests if self.valid else []
-        return [d for d, i in zip(self.deposit_requests, self.valid) if i]
+        return [d for d in self.requests if d.valid and d.value >= current_minimum_fee]
 
 
 ##############
@@ -290,27 +328,27 @@ class DepositContract(DepositTransactionBase):
 
 
 @pytest.fixture
-def pre(deposit_requests: List[DepositTransactionBase]) -> Dict[Address, Account]:
+def pre(requests: List[DepositInteractionBase]) -> Dict[Address, Account]:
     """
     Initial state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
     pre = {}
-    for d in deposit_requests:
-        pre.update(d.pre())
+    for d in requests:
+        pre.update(d.pre)
     return pre
 
 
 @pytest.fixture
 def txs(
-    deposit_requests: List[DepositTransactionBase],
+    requests: List[DepositInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
-    return [d.transaction() for d in deposit_requests]
+    return [d.transaction for d in requests]
 
 
 @pytest.fixture
-def block_requests() -> List[DepositRequest] | None:
+def block_body_override_requests() -> List[DepositRequest] | None:
     """List of requests that overwrite the requests in the header. None by default."""
     return None
 
@@ -322,25 +360,35 @@ def exception() -> BlockException | None:
 
 
 @pytest.fixture
+def included_requests(
+    requests: List[DepositInteractionBase],
+) -> List[DepositRequest]:
+    """
+    Return the list of deposit requests that should be included in each block.
+    """
+    valid_requests: List[DepositRequest] = []
+
+    for d in requests:
+        valid_requests += d.valid_requests(10**18)
+
+    return valid_requests
+
+
+@pytest.fixture
 def blocks(
-    deposit_requests: List[DepositTransactionBase],
-    block_requests: List[DepositRequest] | None,
+    included_requests: List[DepositRequest],
+    block_body_override_requests: List[DepositRequest] | None,
     txs: List[Transaction],
     exception: BlockException | None,
 ) -> List[Block]:
     """List of blocks that comprise the test."""
-    included_deposits = []
-
-    for d in deposit_requests:
-        included_deposits += d.included_deposits()
-
     return [
         Block(
             txs=txs,
             header_verify=Header(
-                requests_root=included_deposits,
+                requests_root=included_requests,
             ),
-            requests=block_requests,
+            requests=block_body_override_requests,
             exception=exception,
         )
     ]
@@ -352,12 +400,12 @@ def blocks(
 
 
 @pytest.mark.parametrize(
-    "deposit_requests",
+    "requests",
     [
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -371,7 +419,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=120_000_000_000_000_000,
@@ -386,7 +434,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -396,7 +444,7 @@ def blocks(
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -411,7 +459,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -427,7 +475,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -437,7 +485,7 @@ def blocks(
                     sender_account=TestAccount1,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -452,18 +500,17 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
-                        amount=999_999,
+                        amount=999_999_999,
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=False,
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -478,7 +525,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -488,14 +535,13 @@ def blocks(
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
-                        amount=999_999,
+                        amount=999_999_999,
                         signature=0x03,
                         index=0x0,
                     ),
-                    valid=False,
                     nonce=1,
                 ),
             ],
@@ -504,20 +550,20 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        # From traces, gas used by the first tx is 82,718 so reduce by one here
+                        gas_limit=0x1431D,
+                        valid=False,
                     ),
-                    # From traces, gas used by the first tx is 82,718 so reduce by one here
-                    gas_limit=0x1431D,
-                    valid=False,
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -532,7 +578,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -542,16 +588,16 @@ def blocks(
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        # From traces, gas used by the second tx is 68,594 so reduce by one here
+                        gas_limit=0x10BF1,
+                        valid=False,
                     ),
-                    # From traces, gas used by the second tx is 68,594 so reduce by one here
-                    gas_limit=0x10BF1,
-                    valid=False,
                     nonce=1,
                 ),
             ],
@@ -560,15 +606,15 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        calldata_modifier=lambda _: b"",
+                        valid=False,
                     ),
-                    valid=False,
-                    calldata=b"",
                 ),
             ],
             id="send_eth_from_eoa",
@@ -576,7 +622,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -590,7 +636,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -613,7 +659,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -629,7 +675,6 @@ def blocks(
                             index=0x0,
                         ),
                     ],
-                    valid=[False, True],
                 ),
             ],
             id="multiple_deposits_from_contract_first_reverts",
@@ -637,7 +682,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -653,7 +698,6 @@ def blocks(
                             index=0x0,
                         ),
                     ],
-                    valid=[True, False],
                 ),
             ],
             id="multiple_deposits_from_contract_last_reverts",
@@ -661,24 +705,26 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
                             amount=1_000_000_000,
                             signature=0x03,
+                            gas_limit=100,
                             index=0x0,
+                            valid=False,
                         ),
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
                             amount=1_000_000_000,
                             signature=0x03,
+                            gas_limit=1_000_000,
                             index=0x0,
+                            valid=True,
                         ),
                     ],
-                    call_gas=[0x100, -1],
-                    valid=[False, True],
                 ),
             ],
             id="multiple_deposits_from_contract_first_oog",
@@ -686,13 +732,15 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
                             amount=1_000_000_000,
                             signature=0x03,
                             index=0x0,
+                            gas_limit=1_000_000,
+                            valid=True,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -700,10 +748,10 @@ def blocks(
                             amount=1_000_000_000,
                             signature=0x03,
                             index=0x0,
+                            gas_limit=100,
+                            valid=False,
                         ),
                     ],
-                    call_gas=[-1, 0x100],
-                    valid=[True, False],
                 ),
             ],
             id="multiple_deposits_from_contract_last_oog",
@@ -711,13 +759,14 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
+                            valid=False,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -725,10 +774,10 @@ def blocks(
                             amount=1_000_000_000,
                             signature=0x03,
                             index=0x1,
+                            valid=False,
                         ),
                     ],
                     extra_code=Op.REVERT(0, 0),
-                    valid=False,
                 ),
             ],
             id="multiple_deposits_from_contract_caller_reverts",
@@ -736,13 +785,14 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
                             amount=32_000_000_000,
                             signature=0x03,
                             index=0x0,
+                            valid=False,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -750,10 +800,10 @@ def blocks(
                             amount=1_000_000_000,
                             signature=0x03,
                             index=0x1,
+                            valid=False,
                         ),
                     ],
                     extra_code=Macros.OOG(),
-                    valid=False,
                 ),
             ],
             id="multiple_deposits_from_contract_caller_oog",
@@ -761,7 +811,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -773,7 +823,7 @@ def blocks(
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -788,7 +838,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -798,7 +848,7 @@ def blocks(
                     nonce=0,
                 ),
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -815,7 +865,7 @@ def blocks(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -825,7 +875,7 @@ def blocks(
                     nonce=0,
                 ),
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -837,7 +887,7 @@ def blocks(
                     nonce=1,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -852,7 +902,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -864,7 +914,7 @@ def blocks(
                     nonce=0,
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -874,7 +924,7 @@ def blocks(
                     nonce=1,
                 ),
                 DepositContract(
-                    deposit_request=[
+                    request=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -892,15 +942,15 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        valid=False,
                     ),
                     call_type=Op.DELEGATECALL,
-                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_delegatecall",
@@ -908,15 +958,15 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        valid=False,
                     ),
                     call_type=Op.STATICCALL,
-                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_staticcall",
@@ -924,15 +974,15 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
                         signature=0x03,
                         index=0x0,
+                        valid=False,
                     ),
                     call_type=Op.CALLCODE,
-                    valid=False,
                 ),
             ],
             id="single_deposit_from_contract_callcode",
@@ -940,7 +990,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -955,7 +1005,7 @@ def blocks(
         pytest.param(
             [
                 DepositContract(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=32_000_000_000,
@@ -988,7 +1038,7 @@ def test_deposit(
 
 
 @pytest.mark.parametrize(
-    "deposit_requests,block_requests,exception",
+    "requests,block_body_override_requests,exception",
     [
         pytest.param(
             [],
@@ -1007,7 +1057,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1023,7 +1073,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1047,7 +1097,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1071,7 +1121,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1095,7 +1145,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1119,7 +1169,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1143,7 +1193,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1152,7 +1202,7 @@ def test_deposit(
                     ),
                 ),
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,
@@ -1184,7 +1234,7 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    deposit_request=DepositRequest(
+                    request=DepositRequest(
                         pubkey=0x01,
                         withdrawal_credentials=0x02,
                         amount=1_000_000_000,

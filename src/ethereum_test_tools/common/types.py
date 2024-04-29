@@ -4,7 +4,6 @@ Useful types for generating Ethereum tests.
 
 from dataclasses import dataclass
 from functools import cached_property
-from hashlib import sha256 as sha256_hashlib
 from itertools import count
 from typing import (
     Any,
@@ -58,13 +57,6 @@ from .base_types import (
 )
 from .constants import TestPrivateKey
 from .conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
-
-
-def sha256(*args: bytes) -> bytes:
-    """
-    Returns the sha256 hash of the input.
-    """
-    return sha256_hashlib(b"".join(args)).digest()
 
 
 # Sentinel classes
@@ -1298,57 +1290,6 @@ class DepositRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]
             self.signature,
             Uint(self.index),
         ]
-
-    @cached_property
-    def value(self) -> int:
-        """
-        Returns the value of the deposit transaction.
-        """
-        return self.amount * 10**9
-
-    @cached_property
-    def deposit_data_root(self) -> Hash:
-        """
-        Returns the deposit data root of the deposit.
-        """
-        pubkey_root = sha256(self.pubkey, b"\x00" * 16)
-        signature_root = sha256(
-            sha256(self.signature[:64]), sha256(self.signature[64:], b"\x00" * 32)
-        )
-        pubkey_withdrawal_root = sha256(pubkey_root, self.withdrawal_credentials)
-        amount_bytes = (self.amount).to_bytes(32, byteorder="little")
-        amount_signature_root = sha256(amount_bytes, signature_root)
-        return Hash(sha256(pubkey_withdrawal_root, amount_signature_root))
-
-    @cached_property
-    def calldata(self) -> bytes:
-        """
-        Returns the calldata needed to call the beacon chain deposit contract and make the deposit.
-
-        deposit(
-            bytes calldata pubkey,
-            bytes calldata withdrawal_credentials,
-            bytes calldata signature,
-            bytes32 deposit_data_root
-        )
-        """
-        offset_length = 32
-        pubkey_offset = offset_length * 3 + len(self.deposit_data_root)
-        withdrawal_offset = pubkey_offset + offset_length + len(self.pubkey)
-        signature_offset = withdrawal_offset + offset_length + len(self.withdrawal_credentials)
-        return (
-            b"\x22\x89\x51\x18"
-            + pubkey_offset.to_bytes(offset_length, byteorder="big")
-            + withdrawal_offset.to_bytes(offset_length, byteorder="big")
-            + signature_offset.to_bytes(offset_length, byteorder="big")
-            + self.deposit_data_root
-            + len(self.pubkey).to_bytes(offset_length, byteorder="big")
-            + self.pubkey
-            + len(self.withdrawal_credentials).to_bytes(offset_length, byteorder="big")
-            + self.withdrawal_credentials
-            + len(self.signature).to_bytes(offset_length, byteorder="big")
-            + self.signature
-        )
 
 
 class DepositRequest(DepositRequestGeneric[HexNumber]):
