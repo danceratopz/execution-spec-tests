@@ -73,9 +73,9 @@ def pre(
     Initial state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
-    pre = {}
+    pre: Dict[Address, Account] = {}
     for d in requests:
-        pre.update(d.pre)
+        d.update_pre(pre)
     return pre
 
 
@@ -84,7 +84,15 @@ def txs(
     requests: List[DepositInteractionBase | WithdrawalRequestInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
-    return [d.transaction for d in requests]
+    address_nonce: Dict[Address, int] = {}
+    txs = []
+    for r in requests:
+        nonce = 0
+        if r.sender_account.address in address_nonce:
+            nonce = address_nonce[r.sender_account.address]
+        txs.append(r.transaction(nonce))
+        address_nonce[r.sender_account.address] = nonce + 1
+    return txs
 
 
 @pytest.fixture
@@ -147,7 +155,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 WithdrawalRequestTransaction(
                     request=WithdrawalRequest(
@@ -155,7 +162,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=1,
                 ),
             ],
             id="single_deposit_from_eoa_single_withdrawal_from_eoa",
@@ -168,7 +174,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -178,7 +183,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
             ],
             id="single_withdrawal_from_eoa_single_deposit_from_eoa",
@@ -193,7 +197,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 WithdrawalRequestTransaction(
                     request=WithdrawalRequest(
@@ -201,7 +204,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=1,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -211,7 +213,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    nonce=2,
                 ),
             ],
             id="two_deposits_from_eoa_single_withdrawal_from_eoa",
@@ -224,7 +225,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -234,7 +234,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
                 WithdrawalRequestTransaction(
                     request=WithdrawalRequest(
@@ -242,7 +241,6 @@ def blocks(
                         amount=1,
                         fee=1,
                     ),
-                    nonce=2,
                 ),
             ],
             id="two_withdrawals_from_eoa_single_deposit_from_eoa",
@@ -257,8 +255,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
-                    contract_address=0x200,
                 ),
                 WithdrawalRequestContract(
                     request=WithdrawalRequest(
@@ -266,8 +262,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=1,
-                    contract_address=0x300,
                 ),
             ],
             id="single_deposit_from_contract_single_withdrawal_from_contract",
@@ -280,8 +274,6 @@ def blocks(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=0,
-                    contract_address=0x300,
                 ),
                 DepositContract(
                     request=DepositRequest(
@@ -291,8 +283,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
-                    contract_address=0x200,
                 ),
             ],
             id="single_withdrawal_from_contract_single_deposit_from_contract",
@@ -444,7 +434,6 @@ def test_valid_deposit_withdrawal_request_from_same_tx(
                         amount=0,
                         fee=1,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -454,7 +443,6 @@ def test_valid_deposit_withdrawal_request_from_same_tx(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
             ],
             [
