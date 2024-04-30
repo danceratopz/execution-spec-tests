@@ -115,18 +115,12 @@ class WithdrawalRequestInteractionBase:
     """
     Account that will send the transaction.
     """
-    nonce: int = 0
-    """
-    Nonce of the sender account.
-    """
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the withdrawal request."""
         raise NotImplementedError
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
         raise NotImplementedError
 
@@ -144,11 +138,10 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
     Withdrawal request to be requested by the transaction.
     """
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the withdrawal request."""
         return Transaction(
-            nonce=self.nonce,
+            nonce=nonce,
             gas_limit=self.request.gas_limit,
             gas_price=0x07,
             to=self.request.interaction_contract_address,
@@ -157,12 +150,13 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
             secret_key=self.sender_account.key,
         )
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
-        return {
-            self.sender_account.address: Account(balance=self.sender_balance),
-        }
+        base_pre.update(
+            {
+                self.sender_account.address: Account(balance=self.sender_balance),
+            }
+        )
 
     def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
@@ -235,20 +229,18 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
-            nonce=self.nonce,
+            nonce=nonce,
             gas_limit=self.tx_gas_limit,
             gas_price=0x07,
-            to=self.entry_address,
+            to=self.entry_address(),
             value=0,
             data=b"".join(w.calldata for w in self.requests),
             secret_key=self.sender_account.key,
         )
 
-    @property
     def entry_address(self) -> Address:
         """Return the address of the contract entry point."""
         if self.call_depth == 2:
@@ -257,7 +249,6 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             return Address(self.contract_address + self.call_depth - 2)
         raise ValueError("Invalid call depth")
 
-    @property
     def extra_contracts(self) -> Dict[Address, Account]:
         """Extra contracts used to simulate call depth."""
         if self.call_depth <= 2:
@@ -282,15 +273,19 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             for i in range(1, self.call_depth - 1)
         }
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
-        return {
-            self.sender_account.address: Account(balance=self.sender_balance),
-            Address(self.contract_address): Account(
-                balance=self.contract_balance, code=self.contract_code, nonce=1
-            ),
-        } | self.extra_contracts
+        while Address(self.contract_address) in base_pre:
+            self.contract_address += 0x100
+        base_pre.update(
+            {
+                self.sender_account.address: Account(balance=self.sender_balance),
+                Address(self.contract_address): Account(
+                    balance=self.contract_balance, code=self.contract_code, nonce=1
+                ),
+            }
+        )
+        base_pre.update(self.extra_contracts())
 
     def valid_requests(self, current_minimum_fee: int) -> List[WithdrawalRequest]:
         """Return the list of withdrawal requests that are valid."""
@@ -348,10 +343,10 @@ def pre(
     Initial state of the accounts. Every withdrawal transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
-    pre = {}
-    for b in blocks_withdrawal_requests:
-        for w in b:
-            pre.update(w.pre)
+    pre: Dict[Address, Account] = {}
+    for requests in blocks_withdrawal_requests:
+        for d in requests:
+            d.update_pre(pre)
     return pre
 
 
@@ -364,8 +359,15 @@ def blocks(
     Return the list of blocks that should be included in the test.
     """
     blocks: List[Block] = []
+    address_nonce: Dict[Address, int] = {}
     for i in range(len(blocks_withdrawal_requests)):
-        txs = [w.transaction for w in blocks_withdrawal_requests[i]]
+        txs = []
+        for r in blocks_withdrawal_requests[i]:
+            nonce = 0
+            if r.sender_account.address in address_nonce:
+                nonce = address_nonce[r.sender_account.address]
+            txs.append(r.transaction(nonce))
+            address_nonce[r.sender_account.address] = nonce + 1
         blocks.append(
             Block(
                 txs=txs,
@@ -417,7 +419,7 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
             + Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
             - previous_excess
         )
-        tx_nonce = next(nonce)
+        contract_address = next(nonce)
         fee = Spec.get_fee(previous_excess)
         assert fee > previous_fee
         blocks.append(
@@ -432,8 +434,7 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                         for i in range(withdrawal_index, withdrawal_index + withdrawals_required)
                     ],
                     # Increment the contract address to avoid overwriting the previous one
-                    contract_address=0x200 + (tx_nonce * 0x100),
-                    nonce=tx_nonce,
+                    contract_address=0x200 + (contract_address * 0x100),
                 )
             ],
         )
@@ -533,7 +534,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=Spec.MAX_AMOUNT - 1,
                             fee=Spec.get_fee(0),
                         ),
-                        nonce=1,
                     ),
                 ],
             ],
@@ -572,7 +572,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                             fee=Spec.get_fee(0),
                         ),
-                        nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK)
                 ],
@@ -596,7 +595,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=Spec.MAX_AMOUNT - 1,
                             fee=Spec.get_fee(0),
                         ),
-                        nonce=1,
                     ),
                 ],
             ],
@@ -619,7 +617,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=Spec.MAX_AMOUNT - 1,
                             fee=0,
                         ),
-                        nonce=1,
                     ),
                 ],
             ],
@@ -645,7 +642,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=0,
                             fee=Spec.get_fee(0),
                         ),
-                        nonce=1,
                     ),
                 ],
             ],
@@ -671,7 +667,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             gas_limit=80_047 - 1,
                             valid=False,
                         ),
-                        nonce=1,
                     ),
                 ],
             ],
@@ -687,7 +682,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                             fee=Spec.get_fee(0),
                         ),
-                        nonce=i,
                     )
                     for i in range(Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK * 2)
                 ],
@@ -898,8 +892,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             valid=False,
                         ),
                         call_type=Op.DELEGATECALL,
-                        contract_address=0x200,
-                        nonce=0,
                     ),
                     WithdrawalRequestContract(
                         request=WithdrawalRequest(
@@ -909,8 +901,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             valid=False,
                         ),
                         call_type=Op.STATICCALL,
-                        contract_address=0x300,
-                        nonce=1,
                     ),
                     WithdrawalRequestContract(
                         request=WithdrawalRequest(
@@ -920,8 +910,6 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                             valid=False,
                         ),
                         call_type=Op.CALLCODE,
-                        contract_address=0x400,
-                        nonce=2,
                     ),
                 ],
             ],
@@ -946,7 +934,7 @@ def test_withdrawal_requests(
 
 
 @pytest.mark.parametrize(
-    "withdrawal_requests,block_body_override_requests,exception",
+    "requests,block_body_override_requests,exception",
     [
         pytest.param(
             [],
@@ -1042,7 +1030,6 @@ def test_withdrawal_requests(
                         amount=0,
                         fee=Spec.get_fee(0),
                     ),
-                    nonce=0,
                 ),
                 WithdrawalRequestTransaction(
                     request=WithdrawalRequest(
@@ -1050,7 +1037,6 @@ def test_withdrawal_requests(
                         amount=0,
                         fee=Spec.get_fee(0),
                     ),
-                    nonce=1,
                 ),
             ],
             [
@@ -1097,7 +1083,7 @@ def test_withdrawal_requests(
 )
 def test_withdrawal_requests_negative(
     blockchain_test: BlockchainTestFiller,
-    withdrawal_requests: List[WithdrawalRequestInteractionBase],
+    requests: List[WithdrawalRequestInteractionBase],
     block_body_override_requests: List[WithdrawalRequest],
     exception: BlockException,
 ):
@@ -1108,21 +1094,29 @@ def test_withdrawal_requests_negative(
     # No previous block so fee is the base
     fee = 1
     current_block_requests = []
-    for w in withdrawal_requests:
+    for w in requests:
         current_block_requests += w.valid_requests(fee)
     included_requests = current_block_requests[: Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK]
 
-    pre = {}
-    for w in withdrawal_requests:
-        pre.update(w.pre)
+    pre: Dict[Address, Account] = {}
+    for d in requests:
+        d.update_pre(pre)
 
+    address_nonce: Dict[Address, int] = {}
+    txs = []
+    for r in requests:
+        nonce = 0
+        if r.sender_account.address in address_nonce:
+            nonce = address_nonce[r.sender_account.address]
+        txs.append(r.transaction(nonce))
+        address_nonce[r.sender_account.address] = nonce + 1
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,
         post={},
         blocks=[
             Block(
-                txs=[w.transaction for w in withdrawal_requests],
+                txs=txs,
                 header_verify=Header(
                     requests_root=included_requests,
                 ),
