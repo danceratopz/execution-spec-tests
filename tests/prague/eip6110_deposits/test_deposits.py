@@ -138,18 +138,12 @@ class DepositInteractionBase:
     """
     Account that sends the transaction.
     """
-    nonce: int = 0
-    """
-    Nonce of the account that sends the transaction.
-    """
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the deposit request."""
         raise NotImplementedError
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
         raise NotImplementedError
 
@@ -167,11 +161,10 @@ class DepositTransaction(DepositInteractionBase):
     Deposit request to be included in the block.
     """
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
-            nonce=self.nonce,
+            nonce=nonce,
             gas_limit=self.request.gas_limit,
             gas_price=0x07,
             to=self.request.interaction_contract_address,
@@ -180,12 +173,13 @@ class DepositTransaction(DepositInteractionBase):
             secret_key=self.sender_account.key,
         )
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
-        return {
-            self.sender_account.address: Account(balance=self.sender_balance),
-        }
+        base_pre.update(
+            {
+                self.sender_account.address: Account(balance=self.sender_balance),
+            }
+        )
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
@@ -260,20 +254,18 @@ class DepositContract(DepositInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    @property
-    def transaction(self) -> Transaction:
+    def transaction(self, nonce: int) -> Transaction:
         """Return a transaction for the deposit request."""
         return Transaction(
-            nonce=self.nonce,
+            nonce=nonce,
             gas_limit=self.tx_gas_limit,
             gas_price=0x07,
-            to=self.entry_address,
+            to=self.entry_address(),
             value=0,
             data=b"".join(d.calldata for d in self.requests),
             secret_key=self.sender_account.key,
         )
 
-    @property
     def entry_address(self) -> Address:
         """Return the address of the contract entry point."""
         if self.call_depth == 2:
@@ -282,7 +274,6 @@ class DepositContract(DepositInteractionBase):
             return Address(self.contract_address + self.call_depth - 2)
         raise ValueError("Invalid call depth")
 
-    @property
     def extra_contracts(self) -> Dict[Address, Account]:
         """Extra contracts used to simulate call depth."""
         if self.call_depth <= 2:
@@ -307,15 +298,19 @@ class DepositContract(DepositInteractionBase):
             for i in range(1, self.call_depth - 1)
         }
 
-    @property
-    def pre(self) -> Dict[Address, Account]:
+    def update_pre(self, base_pre: Dict[Address, Account]):
         """Return the pre-state of the account."""
-        return {
-            self.sender_account.address: Account(balance=self.sender_balance),
-            Address(self.contract_address): Account(
-                balance=self.contract_balance, code=self.contract_code, nonce=1
-            ),
-        } | self.extra_contracts
+        while Address(self.contract_address) in base_pre:
+            self.contract_address += 0x100
+        base_pre.update(
+            {
+                self.sender_account.address: Account(balance=self.sender_balance),
+                Address(self.contract_address): Account(
+                    balance=self.contract_balance, code=self.contract_code, nonce=1
+                ),
+            }
+        )
+        base_pre.update(self.extra_contracts())
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
@@ -333,9 +328,9 @@ def pre(requests: List[DepositInteractionBase]) -> Dict[Address, Account]:
     Initial state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
-    pre = {}
+    pre: Dict[Address, Account] = {}
     for d in requests:
-        pre.update(d.pre)
+        d.update_pre(pre)
     return pre
 
 
@@ -344,7 +339,15 @@ def txs(
     requests: List[DepositInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
-    return [d.transaction for d in requests]
+    address_nonce: Dict[Address, int] = {}
+    txs = []
+    for r in requests:
+        nonce = 0
+        if r.sender_account.address in address_nonce:
+            nonce = address_nonce[r.sender_account.address]
+        txs.append(r.transaction(nonce))
+        address_nonce[r.sender_account.address] = nonce + 1
+    return txs
 
 
 @pytest.fixture
@@ -441,7 +444,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -451,7 +453,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    nonce=1,
                 ),
             ],
             id="multiple_deposit_from_same_eoa",
@@ -466,7 +467,6 @@ def blocks(
                         signature=0x03,
                         index=i,
                     ),
-                    nonce=i,
                 )
                 for i in range(200)
             ],
@@ -507,7 +507,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -517,7 +516,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
             ],
             id="multiple_deposit_from_same_eoa_first_reverts",
@@ -532,7 +530,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -542,7 +539,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
             ],
             id="multiple_deposit_from_same_eoa_last_reverts",
@@ -560,7 +556,6 @@ def blocks(
                         gas_limit=0x1431D,
                         valid=False,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -570,7 +565,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=1,
                 ),
             ],
             id="multiple_deposit_from_same_eoa_first_oog",
@@ -585,7 +579,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -598,7 +591,6 @@ def blocks(
                         gas_limit=0x10BF1,
                         valid=False,
                     ),
-                    nonce=1,
                 ),
             ],
             id="multiple_deposit_from_same_eoa_last_oog",
@@ -666,6 +658,7 @@ def blocks(
                             amount=999_999_999,
                             signature=0x03,
                             index=0x0,
+                            valid=False,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -695,7 +688,8 @@ def blocks(
                             withdrawal_credentials=0x02,
                             amount=999_999_999,
                             signature=0x03,
-                            index=0x0,
+                            index=0x1,
+                            valid=False,
                         ),
                     ],
                 ),
@@ -722,7 +716,6 @@ def blocks(
                             signature=0x03,
                             gas_limit=1_000_000,
                             index=0x0,
-                            valid=True,
                         ),
                     ],
                 ),
@@ -740,7 +733,6 @@ def blocks(
                             signature=0x03,
                             index=0x0,
                             gas_limit=1_000_000,
-                            valid=True,
                         ),
                         DepositRequest(
                             pubkey=0x01,
@@ -820,7 +812,6 @@ def blocks(
                             index=0x0,
                         ),
                     ],
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -830,7 +821,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    nonce=1,
                 ),
             ],
             id="single_deposit_from_contract_single_deposit_from_eoa",
@@ -845,7 +835,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositContract(
                     request=[
@@ -857,7 +846,6 @@ def blocks(
                             index=0x1,
                         ),
                     ],
-                    nonce=1,
                 ),
             ],
             id="single_deposit_from_eoa_single_deposit_from_contract",
@@ -872,7 +860,6 @@ def blocks(
                         signature=0x03,
                         index=0x0,
                     ),
-                    nonce=0,
                 ),
                 DepositContract(
                     request=[
@@ -884,7 +871,6 @@ def blocks(
                             index=0x1,
                         ),
                     ],
-                    nonce=1,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -894,7 +880,6 @@ def blocks(
                         signature=0x03,
                         index=0x2,
                     ),
-                    nonce=2,
                 ),
             ],
             id="single_deposit_from_contract_between_eoa_deposits",
@@ -911,7 +896,6 @@ def blocks(
                             index=0x0,
                         ),
                     ],
-                    nonce=0,
                 ),
                 DepositTransaction(
                     request=DepositRequest(
@@ -921,7 +905,6 @@ def blocks(
                         signature=0x03,
                         index=0x1,
                     ),
-                    nonce=1,
                 ),
                 DepositContract(
                     request=[
@@ -933,8 +916,6 @@ def blocks(
                             index=0x2,
                         ),
                     ],
-                    nonce=2,
-                    contract_address=0x300,
                 ),
             ],
             id="single_deposit_from_eoa_between_contract_deposits",
@@ -1209,7 +1190,6 @@ def test_deposit(
                         signature=0x03,
                         index=0x1,
                     ),
-                    nonce=1,
                 ),
             ],
             [
