@@ -237,7 +237,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             gas_price=0x07,
             to=self.entry_address(),
             value=0,
-            data=b"".join(w.calldata for w in self.requests),
+            data=b"".join(r.calldata for r in self.requests),
             secret_key=self.sender_account.key,
         )
 
