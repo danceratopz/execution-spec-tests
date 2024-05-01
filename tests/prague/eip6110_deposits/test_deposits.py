@@ -262,7 +262,7 @@ class DepositContract(DepositInteractionBase):
             gas_price=0x07,
             to=self.entry_address(),
             value=0,
-            data=b"".join(d.calldata for d in self.requests),
+            data=b"".join(r.calldata for r in self.requests),
             secret_key=self.sender_account.key,
         )
 
