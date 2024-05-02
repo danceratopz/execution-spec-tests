@@ -2,6 +2,7 @@
 All Ethereum fork class definitions.
 """
 
+from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
 from typing import List, Mapping, Optional
@@ -93,6 +94,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         Returns the amount of blob gas used per blob for a given fork.
         """
         return 0
+
+    @classmethod
+    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        At genesis, header must not contain beacon chain requests.
+        """
+        return False
 
     @classmethod
     def engine_new_payload_version(
@@ -474,22 +482,76 @@ class Prague(Cancun):
         return False
 
     @classmethod
-    def pre_allocation_blockchain(cls) -> Mapping:
-        """
-        Prague requires pre-allocation of the history storage contract for EIP-2935
-        """
-        with open(CURRENT_FOLDER / "history_contract.bin", mode="rb") as f:
-            new_allocation = {
-                0x25A219378DAD9B3503C8268C9CA836A52427A4FB: {
-                    "nonce": 1,
-                    "code": f.read(),
-                }
-            }
-        return new_allocation | super(Prague, cls).pre_allocation_blockchain()
-
-    @classmethod
     def solc_min_version(cls) -> Version:
         """
         Returns the minimum version of solc that supports this fork.
         """
         return Version.parse("1.0.0")  # set a high version; currently unknown
+
+    @classmethod
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """
+        Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110,
+        the exits contract for EIP-7002, and history storage contract for EIP-2935.
+        """
+        new_allocation = {}
+
+        # Add the beacon chain deposit contract
+        DEPOSIT_CONTRACT_TREE_DEPTH = 32
+        storage = {}
+        next_hash = sha256(b"\x00" * 64).digest()
+        for i in range(DEPOSIT_CONTRACT_TREE_DEPTH + 2, DEPOSIT_CONTRACT_TREE_DEPTH * 2 + 1):
+            storage[i] = next_hash
+            next_hash = sha256(next_hash + next_hash).digest()
+
+        with open(CURRENT_FOLDER / "deposit_contract.bin", mode="rb") as f:
+            new_allocation.update(
+                {
+                    0x00000000219AB540356CBB839CBE05303D7705FA: {
+                        "nonce": 1,
+                        "code": f.read(),
+                        "storage": storage,
+                    }
+                }
+            )
+
+        # Add the withdrawal request contract
+        with open(CURRENT_FOLDER / "withdrawal_request.bin", mode="rb") as f:
+            new_allocation.update(
+                {
+                    0x00A3CA265EBCB825B45F985A16CEFB49958CE017: {
+                        "nonce": 1,
+                        "code": f.read(),
+                    },
+                }
+            )
+
+        # Add the history contract
+        with open(CURRENT_FOLDER / "history_contract.bin", mode="rb") as f:
+            new_allocation.update(
+                {
+                    0x25A219378DAD9B3503C8268C9CA836A52427A4FB: {
+                        "nonce": 1,
+                        "code": f.read(),
+                    }
+                }
+            )
+
+        return new_allocation | super(Prague, cls).pre_allocation_blockchain()
+
+    @classmethod
+    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Prague requires that the execution layer block contains the beacon
+        chain requests.
+        """
+        return True
+
+    @classmethod
+    def engine_new_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        Starting at Prague, new payload calls must use version 4
+        """
+        return 4
