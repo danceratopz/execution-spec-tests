@@ -9,6 +9,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 🧪 Test Cases
 
 - ✨ Add `test_double_kill` and `test_recreate` which test resurrection of accounts killed with `SELFDESTRUCT` ([#488](https://github.com/ethereum/execution-spec-tests/pull/488)).
+- ✨ Add tests for [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537) ([#499](https://github.com/ethereum/execution-spec-tests/pull/499)).
 
 ### 🛠️ Framework
 
