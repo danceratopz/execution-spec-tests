@@ -381,6 +381,7 @@ class BlockchainTest(BaseTest):
             requests_root=Requests(root=[]).trie_root
             if fork.header_requests_required(0, 0)
             else None,
+            fork=fork,
         )
 
         return (
@@ -491,6 +492,7 @@ class BlockchainTest(BaseTest):
             # Modify any parameter specified in the `rlp_modifier` after
             # transition tool processing.
             header = block.rlp_modifier.apply(header)
+            header.fork = fork  # Deleted during `apply` because `exclude=True`
 
         requests = None
         if fork.header_requests_required(header.number, header.timestamp):
@@ -597,6 +599,7 @@ class BlockchainTest(BaseTest):
                     ]
                     if requests is not None
                     else None,
+                    fork=fork,
                 ).with_rlp(txs=txs, requests=requests)
                 if block.exception is None:
                     fixture_blocks.append(fixture_block)

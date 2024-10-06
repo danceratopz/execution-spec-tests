@@ -39,10 +39,12 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Added `selector` and `marks` fields to all `@pytest.mark.with_all*` markers, which allows passing lambda functions to select or mark specific parametrized values (see [documentation](https://ethereum.github.io/execution-spec-tests/main/writing_tests/test_markers/#covariant-marker-keyword-arguments) for more information) ([#762](https://github.com/ethereum/execution-spec-tests/pull/762)).
 - ✨ Improves consume input flags for develop and stable fixture releases, fixes `--help` flag for consume ([#745](https://github.com/ethereum/execution-spec-tests/pull/745)).
 - 🐞 Fix erroneous fork message in pytest session header with development forks ([#806](https://github.com/ethereum/execution-spec-tests/pull/806)).
-- 🐞 Fix `Conditional` code generator in EOF mode ([#821](https://github.com/ethereum/execution-spec-tests/pull/821))
-- 🔀 `ethereum_test_rpc` library has been created with what was previously `ethereum_test_tools.rpc` ([#822](https://github.com/ethereum/execution-spec-tests/pull/822))
-- ✨ Add `Wei` type to `ethereum_test_base_types` which allows parsing wei amounts from strings like "1 ether", "1000 wei", "10**2 gwei", etc ([#825](https://github.com/ethereum/execution-spec-tests/pull/825))
-- 🔀 Replace `ethereum.base_types` with `ethereum-types` ([#850](https://github.com/ethereum/execution-spec-tests/pull/850))
+- 🐞 Fix `Conditional` code generator in EOF mode ([#821](https://github.com/ethereum/execution-spec-tests/pull/821)).
+- 🐞 Ensure that `Block` objects keep track of their `fork`, for example, when the block's `rlp_modifier` is not `None` ([#854](https://github.com/ethereum/execution-spec-tests/pull/854)).
+- 🔀 `ethereum_test_rpc` library has been created with what was previously `ethereum_test_tools.rpc` ([#822](https://github.com/ethereum/execution-spec-tests/pull/822)).
+- ✨ Add `Wei` type to `ethereum_test_base_types` which allows parsing wei amounts from strings like "1 ether", "1000 wei", "10**2 gwei", etc ([#825](https://github.com/ethereum/execution-spec-tests/pull/825)).
+- ✨ Pin EELS versions in `eels_resolutions.json` and include this file in fixture releases ([#872](https://github.com/ethereum/execution-spec-tests/pull/872)).
+- 🔀 Replace `ethereum.base_types` with `ethereum-types` ([#850](https://github.com/ethereum/execution-spec-tests/pull/850)).
 
 ### 🔧 EVM Tools
 
@@ -56,6 +58,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - 🔀 Simplify Python project configuration and consolidate it into `pyproject.toml` ([#764](https://github.com/ethereum/execution-spec-tests/pull/764)).
 - 🔀 Created `pytest_plugins.concurrency` plugin to sync multiple `xdist` processes without using a command flag to specify the temporary working folder ([#824](https://github.com/ethereum/execution-spec-tests/pull/824))
 - 🔀 Move pytest plugin `pytest_plugins.filler.solc` to `pytest_plugins.solc.solc` ([#823](https://github.com/ethereum/execution-spec-tests/pull/823)).
+- 🐞 Asserts that the deploy docs tags workflow is only triggered for full releases ([#857](https://github.com/ethereum/execution-spec-tests/pull/857)).
 
 ### 💥 Breaking Change
 
@@ -229,6 +232,7 @@ Due to changes in the framework, there is a breaking change in the directory str
 - 🔀 Filling tool: Updated the default filling tool (`t8n`) to go-ethereum@master ([#368](https://github.com/ethereum/execution-spec-tests/pull/368)).
 - 🐞 Docs: Fix error banner in online docs due to mermaid syntax error ([#398](https://github.com/ethereum/execution-spec-tests/pull/398)).
 - 🐞 Docs: Fix incorrectly formatted nested lists in online doc ([#403](https://github.com/ethereum/execution-spec-tests/pull/403)).
+- 🔀 CLI: `evm_bytes_to_python` is renamed to `evm_bytes` and now accepts flag `--assembly` to output the code in assembly format ([#844](https://github.com/ethereum/execution-spec-tests/pull/844))
 
 ### 💥 Breaking Changes
 
