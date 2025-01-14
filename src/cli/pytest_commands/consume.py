@@ -16,7 +16,7 @@ def handle_hive_env_flags(args: List[str]) -> List[str]:
     """Convert hive environment variables into pytest flags."""
     env_var_mappings = {
         "HIVE_TEST_PATTERN": ["-k"],
-        "HIVE_PARALLELISM": ["-n"],
+        # "HIVE_PARALLELISM": ["-n"],
     }
     for env_var, pytest_flag in env_var_mappings.items():
         value = os.getenv(env_var)
