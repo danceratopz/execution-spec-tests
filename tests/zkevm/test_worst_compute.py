@@ -10,7 +10,13 @@ import math
 import pytest
 
 from ethereum_test_forks import Fork
-from ethereum_test_tools import Alloc, Block, BlockchainTestFiller, Environment, Transaction
+from ethereum_test_tools import (
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Environment,
+    Transaction,
+)
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "TODO"
@@ -160,6 +166,170 @@ def test_worst_modexp(
 
     tx = Transaction(
         to=code_address,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    blockchain_test(
+        env=env,
+        pre=pre,
+        post={},
+        blocks=[Block(txs=[tx])],
+    )
+
+
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "gas_limit",
+    [
+        Environment().gas_limit,
+    ],
+)
+@pytest.mark.parametrize(
+    "op",
+    [
+        (
+            Op.ADD,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.MUL,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.SUB,
+            # This has the cycle of 2, after two SUBs values are back to initials.
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.DIV,
+            # This has the cycle of 2:
+            # v[0] = a // b
+            # v[1] = a // v[0] = a // (a // b) = b
+            # v[2] = a // b
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                # We want the first divisor to be slightly bigger than 2**128:
+                # this is the worst case for the division algorithm.
+                0x100000000000000000000000000000033,
+            ),
+        ),
+        (
+            Op.SDIV,
+            # Same as DIV, but the numerator made positive, and the divisor made negative.
+            (
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCD,
+            ),
+        ),
+        # MOD does not work in this scenario because the divisor quickly becomes 0 forever.
+        # SMOD does not work in this scenario because the divisor quickly becomes 0 forever.
+        (
+            Op.EXP,
+            # This keeps the values unchanged, pow(2**256-1, 2**256-1, 2**256) == 2**256-1.
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            ),
+        ),
+        (
+            # Not great because we always sign-extend the 4 bytes.
+            Op.SIGNEXTEND,
+            (
+                3,
+                0xFFDADADA,  # Negative to have more work.
+            ),
+        ),
+        (Op.LT, (0, 1)),  # Keeps getting result 1.
+        (Op.GT, (0, 1)),  # Keeps getting result 0.
+        (
+            Op.SLT,  # Keeps getting result 1.
+            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1),
+        ),
+        (
+            Op.SGT,  # Keeps getting result 0.
+            (0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1),
+        ),
+        (
+            Op.EQ,
+            # The worst case is if the arguments are equal (no early return),
+            # so let's keep it comparing ones.
+            (1, 1),
+        ),
+        (
+            Op.AND,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.OR,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.XOR,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+            ),
+        ),
+        (
+            Op.BYTE,
+            (31, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SHL,
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SHR,
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+        (
+            Op.SAR,
+            (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+        ),
+    ],
+    ids=lambda param_tuple: str(param_tuple[0]),
+)
+def test_worst_binop_simple(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    gas_limit: int,
+    op: tuple[Op, tuple[int, int]],
+):
+    """
+    Test running a block with as many binary instructions (takes two args, produces one value)
+    as possible. The execution starts with two initial values on the stack, and the stack is
+    balanced by the DUP2 instruction.
+    """
+    env = Environment(gas_limit=gas_limit)
+
+    tx_data = b"".join(arg.to_bytes(32, byteorder="big") for arg in op[1])
+
+    code_prefix = Op.JUMPDEST + Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32)
+    code_suffix = Op.POP + Op.POP + Op.PUSH0 + Op.JUMP
+    code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
+    code_body = (Op.DUP2 + op[0]) * (code_body_len // 2)
+    code = code_prefix + code_body + code_suffix
+    assert len(code) == MAX_CODE_SIZE - 1
+
+    tx = Transaction(
+        to=pre.deploy_contract(code=code),
+        data=tx_data,
         gas_limit=gas_limit,
         sender=pre.fund_eoa(),
     )
