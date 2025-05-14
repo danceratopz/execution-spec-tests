@@ -186,7 +186,7 @@ def test_worst_modexp(
     ],
 )
 @pytest.mark.parametrize(
-    "op",
+    "opcode,opcode_args",
     [
         (
             Op.ADD,
@@ -303,13 +303,14 @@ def test_worst_modexp(
             (1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
         ),
     ],
-    ids=lambda param_tuple: str(param_tuple[0]),
+    ids=lambda param: "" if isinstance(param, tuple) else param,
 )
 def test_worst_binop_simple(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     gas_limit: int,
-    op: tuple[Op, tuple[int, int]],
+    opcode: Op,
+    opcode_args: tuple[int, int],
 ):
     """
     Test running a block with as many binary instructions (takes two args, produces one value)
@@ -318,12 +319,12 @@ def test_worst_binop_simple(
     """
     env = Environment(gas_limit=gas_limit)
 
-    tx_data = b"".join(arg.to_bytes(32, byteorder="big") for arg in op[1])
+    tx_data = b"".join(arg.to_bytes(32, byteorder="big") for arg in opcode_args)
 
     code_prefix = Op.JUMPDEST + Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32)
     code_suffix = Op.POP + Op.POP + Op.PUSH0 + Op.JUMP
     code_body_len = MAX_CODE_SIZE - len(code_prefix) - len(code_suffix)
-    code_body = (Op.DUP2 + op[0]) * (code_body_len // 2)
+    code_body = (Op.DUP2 + opcode) * (code_body_len // 2)
     code = code_prefix + code_body + code_suffix
     assert len(code) == MAX_CODE_SIZE - 1
 
