@@ -3,7 +3,7 @@
 import hashlib
 import json
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, Dict, Type, Union
+from typing import Annotated, Any, ClassVar, Dict, List, Type, Union, Optional # Added List, Optional
 
 from pydantic import (
     Discriminator,
@@ -36,6 +36,14 @@ def fixture_format_discriminator(v: Any) -> str | None:
         fixture_format = info_dict.get("fixture_format")
     assert fixture_format is not None, f"Fixture format not found in info field: {info_dict}"
     return fixture_format
+
+
+class PytestMarkerInfo(CamelModel):
+    """Pytest marker information."""
+
+    name: str
+    args: List[Any]
+    kwargs: Dict[str, Any]
 
 
 class BaseFixture(CamelModel):

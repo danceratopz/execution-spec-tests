@@ -418,15 +418,35 @@ def pytest_generate_tests(metafunc):
 
     test_cases = metafunc.config.test_cases
     param_list = []
-    for test_case in test_cases:
+    for test_case in test_cases: # test_case is an instance of TestCaseIndexFile or TestCaseStream
         if test_case.format.format_name not in metafunc.config._supported_fixture_formats:
             continue
-        fork_markers = get_relative_fork_markers(test_case.fork, strict_mode=False)
+        
+        current_marks = []
+        
+        # Add fork markers
+        fork_markers_names = get_relative_fork_markers(test_case.fork, strict_mode=False)
+        for m_name in fork_markers_names:
+            current_marks.append(getattr(pytest.mark, m_name))
+            
+        # Add format marker
+        current_marks.append(getattr(pytest.mark, test_case.format.format_name))
+
+        # Add stored markers from TestCaseIndexFile
+        # Check if it's a TestCaseIndexFile and has the 'markers' attribute
+        if hasattr(test_case, 'markers') and test_case.markers:
+            for marker_info in test_case.markers: # marker_info is PytestMarkerInfo
+                # Dynamically create the pytest.mark.Marker object
+                # getattr(pytest.mark, "foo") gives a MarkGenerator
+                # then call it with *args, **kwargs
+                marker_decorator = getattr(pytest.mark, marker_info.name)
+                actual_marker = marker_decorator(*marker_info.args, **marker_info.kwargs)
+                current_marks.append(actual_marker)
+        
         param = pytest.param(
             test_case,
             id=test_case.id,
-            marks=[getattr(pytest.mark, m) for m in fork_markers]
-            + [getattr(pytest.mark, test_case.format.format_name)],
+            marks=current_marks, # Use the combined list of markers
         )
         param_list.append(param)
 

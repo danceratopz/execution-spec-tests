@@ -156,6 +156,12 @@ def generate_fixtures_index(
             relative_file_path = Path(file).absolute().relative_to(Path(input_path).absolute())
             for fixture_name, fixture in fixtures.items():
                 fixture_fork = fixture.get_fork()
+                # Extract markers from fixture.info.
+                # fixture.info["markers"] should contain a list of dicts at this point if present.
+                # Pydantic will convert these dicts to PytestMarkerInfo objects automatically
+                # when creating the TestCaseIndexFile instance due to type hints.
+                serialized_markers = fixture.info.get("markers") # This will be None if not present
+
                 test_cases.append(
                     TestCaseIndexFile(
                         id=fixture_name,
@@ -165,6 +171,7 @@ def generate_fixtures_index(
                         or f"0x{fixture.info.get('generatedTestHash')}",
                         fork=fixture_fork,
                         format=fixture.__class__,
+                        markers=serialized_markers, # Add this line
                     )
                 )
                 if fixture_fork:

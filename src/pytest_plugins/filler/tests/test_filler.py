@@ -615,6 +615,228 @@ def test_fixture_output_based_on_command_line_args(
         assert properties["build"] == build_name
 
 
+test_module_markers_various = textwrap.dedent(
+    """\
+    import pytest
+
+    from ethereum_test_tools import Account, Environment, TestAddress, Transaction
+
+    @pytest.mark.slow
+    @pytest.mark.eip(7702)
+    @pytest.mark.skip("testing skip") # Skip is handled by pytest itself, won't appear in own_markers
+    @pytest.mark.custom_marker(custom_arg="value", another_arg=123)
+    @pytest.mark.parametrize("x", [1, 2]) # Parametrize is in MARKER_EXCLUSION_LIST
+    @pytest.mark.valid_from("Cancun") # Added to make the test collectible
+    def test_markers_example(state_test, x):
+        state_test(
+            env=Environment(),
+            pre={TestAddress: Account(balance=1_000_000)},
+            post={},
+            tx=Transaction()
+        )
+    """
+)
+
+test_module_markers_only_excluded = textwrap.dedent(
+    """\
+    import pytest
+
+    from ethereum_test_tools import Account, Environment, TestAddress, Transaction
+
+    @pytest.mark.parametrize("x", [1, 2]) # Parametrize is in MARKER_EXCLUSION_LIST
+    @pytest.mark.valid_from("Cancun") # Added to make the test collectible
+    def test_markers_only_excluded(state_test, x):
+        state_test(
+            env=Environment(),
+            pre={TestAddress: Account(balance=1_000_000)},
+            post={},
+            tx=Transaction()
+        )
+    """
+)
+
+test_module_markers_none = textwrap.dedent(
+    """\
+    import pytest
+
+    from ethereum_test_tools import Account, Environment, TestAddress, Transaction
+
+    @pytest.mark.valid_from("Cancun") # Added to make the test collectible
+    def test_markers_none(state_test):
+        state_test(
+            env=Environment(),
+            pre={TestAddress: Account(balance=1_000_000)},
+            post={},
+            tx=Transaction()
+        )
+    """
+)
+
+
+@pytest.mark.run_in_serial
+def test_marker_serialization_various_markers(testdir):
+    """
+    Verify serialization of various pytest markers, including included and excluded ones.
+    """
+    tests_dir = testdir.mkdir("tests")
+    marker_tests_dir = tests_dir.mkdir("marker_tests")
+    test_module = marker_tests_dir.join("test_module_markers_various.py")
+    test_module.write(test_module_markers_various)
+
+    testdir.copy_example(name="pytest.ini")
+    args = ["-v", "--no-html", "--output", "marker_test_output_various", "-m", "state_test"]
+    # Limit to a specific fork to reduce generated fixtures, Cancun because test is valid_from("Cancun")
+    args.extend(["--forks", "Cancun"])
+
+
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(passed=2, failed=0, skipped=0) # 2 because of parametrize("x", [1,2])
+
+    output_dir = Path("marker_test_output_various").absolute()
+    assert output_dir.exists()
+
+    # Fixture path will be like:
+    # marker_test_output_various/state_tests/cancun/marker_tests/
+    # test_module_markers_various/markers_example.json
+    # The test is parametrized, so there will be two entries in the json,
+    # but the _info.markers should be the same.
+    fixture_file_path = Path(
+        output_dir
+        / "state_tests"
+        / "cancun"
+        / "marker_tests"
+        / "test_module_markers_various"
+        / "markers_example.json"
+    )
+    assert fixture_file_path.exists(), f"Fixture file not found: {fixture_file_path}"
+
+    with open(fixture_file_path, "r") as f:
+        fixtures_data = json.load(f)
+
+    # Get the info from the first fixture instance (e.g., for x=1)
+    assert len(fixtures_data) > 0, "No fixtures found in the JSON file."
+    first_fixture_key = list(fixtures_data.keys())[0]
+    fixture_info = fixtures_data[first_fixture_key]["_info"]
+
+    assert "markers" in fixture_info, "_info should contain 'markers' key"
+    serialized_markers = fixture_info["markers"]
+
+    assert len(serialized_markers) == 3, "Incorrect number of serialized markers"
+
+    expected_markers = [
+        {"name": "slow", "args": [], "kwargs": {}},
+        {"name": "eip", "args": [7702], "kwargs": {}},
+        {"name": "custom_marker", "args": [], "kwargs": {"custom_arg": "value", "another_arg": 123}},
+        # valid_from should also be present as it's not in the exclusion list
+        {"name": "valid_from", "args": ["Cancun"], "kwargs": {}},
+    ]
+
+    # Sort both lists by marker name for consistent comparison
+    serialized_markers.sort(key=lambda m: m["name"])
+    expected_markers.sort(key=lambda m: m["name"])
+
+
+    # Assert each expected marker is present
+    for expected in expected_markers:
+        found = any(
+            m["name"] == expected["name"]
+            and m["args"] == expected["args"]
+            and m["kwargs"] == expected["kwargs"]
+            for m in serialized_markers
+        )
+        assert found, f"Expected marker {expected} not found in {serialized_markers}"
+
+    # Assert no excluded markers are present
+    assert not any(
+        m["name"] == "parametrize" for m in serialized_markers
+    ), "Excluded marker 'parametrize' found"
+    assert not any(
+        m["name"] == "skip" for m in serialized_markers
+    ), "Marker 'skip' should have been handled by pytest and not in own_markers"
+
+
+@pytest.mark.run_in_serial
+def test_marker_serialization_only_excluded_markers(testdir):
+    """
+    Verify that _info["markers"] is an empty list when only excluded markers are present.
+    """
+    tests_dir = testdir.mkdir("tests")
+    marker_tests_dir = tests_dir.mkdir("marker_tests")
+    test_module = marker_tests_dir.join("test_module_markers_only_excluded.py")
+    test_module.write(test_module_markers_only_excluded)
+
+    testdir.copy_example(name="pytest.ini")
+    args = ["-v", "--no-html", "--output", "marker_test_output_excluded", "-m", "state_test"]
+    args.extend(["--forks", "Cancun"]) # Test is valid_from("Cancun")
+
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(passed=2, failed=0, skipped=0)
+
+    output_dir = Path("marker_test_output_excluded").absolute()
+    fixture_file_path = Path(
+        output_dir
+        / "state_tests"
+        / "cancun"
+        / "marker_tests"
+        / "test_module_markers_only_excluded"
+        / "markers_only_excluded.json"
+    )
+    assert fixture_file_path.exists()
+
+    with open(fixture_file_path, "r") as f:
+        fixtures_data = json.load(f)
+    first_fixture_key = list(fixtures_data.keys())[0]
+    fixture_info = fixtures_data[first_fixture_key]["_info"]
+
+    assert "markers" in fixture_info
+    serialized_markers = fixture_info["markers"]
+    # valid_from should be present
+    assert len(serialized_markers) == 1, f"Expected 1 marker, got {len(serialized_markers)}: {serialized_markers}"
+    assert serialized_markers[0]["name"] == "valid_from"
+    assert serialized_markers[0]["args"] == ["Cancun"]
+
+
+@pytest.mark.run_in_serial
+def test_marker_serialization_no_markers(testdir):
+    """
+    Verify that _info["markers"] is an empty list when no markers are present.
+    """
+    tests_dir = testdir.mkdir("tests")
+    marker_tests_dir = tests_dir.mkdir("marker_tests")
+    test_module = marker_tests_dir.join("test_module_markers_none.py")
+    test_module.write(test_module_markers_none)
+
+    testdir.copy_example(name="pytest.ini")
+    args = ["-v", "--no-html", "--output", "marker_test_output_none", "-m", "state_test"]
+    args.extend(["--forks", "Cancun"]) # Test is valid_from("Cancun")
+
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(passed=1, failed=0, skipped=0)
+
+    output_dir = Path("marker_test_output_none").absolute()
+    fixture_file_path = Path(
+        output_dir
+        / "state_tests"
+        / "cancun"
+        / "marker_tests"
+        / "test_module_markers_none"
+        / "markers_none.json"
+    )
+    assert fixture_file_path.exists()
+
+    with open(fixture_file_path, "r") as f:
+        fixtures_data = json.load(f)
+    first_fixture_key = list(fixtures_data.keys())[0]
+    fixture_info = fixtures_data[first_fixture_key]["_info"]
+
+    assert "markers" in fixture_info
+    serialized_markers = fixture_info["markers"]
+    # valid_from should be present
+    assert len(serialized_markers) == 1, f"Expected 1 marker, got {len(serialized_markers)}: {serialized_markers}"
+    assert serialized_markers[0]["name"] == "valid_from"
+    assert serialized_markers[0]["args"] == ["Cancun"]
+
+
 test_module_environment_variables = textwrap.dedent(
     """\
     import pytest

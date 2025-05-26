@@ -9,7 +9,7 @@ from pydantic import BaseModel, RootModel
 
 from ethereum_test_base_types import HexNumber
 
-from .base import BaseFixture, FixtureFormat
+from .base import BaseFixture, FixtureFormat, PytestMarkerInfo # Added PytestMarkerInfo
 from .file import Fixtures
 
 
@@ -60,6 +60,7 @@ class TestCaseIndexFile(TestCaseBase):
     """The test case model used to save/load test cases to/from an index file."""
 
     json_path: Path
+    markers: Optional[List[PytestMarkerInfo]] = None # Added field
     __test__ = False  # stop pytest from collecting this class as a test
 
     # TODO: add pytest marks

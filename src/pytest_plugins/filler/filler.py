@@ -23,7 +23,13 @@ from config import AppConfig
 from ethereum_clis import TransitionTool
 from ethereum_clis.clis.geth import FixtureConsumerTool
 from ethereum_test_base_types import Alloc, ReferenceSpec
-from ethereum_test_fixtures import BaseFixture, FixtureCollector, FixtureConsumer, TestInfo
+from ethereum_test_fixtures import (
+    BaseFixture,
+    FixtureCollector,
+    FixtureConsumer,
+    PytestMarkerInfo, # Added PytestMarkerInfo
+    TestInfo,
+)
 from ethereum_test_forks import Fork, get_transition_fork_predecessor, get_transition_forks
 from ethereum_test_specs import SPEC_TYPES, BaseTest
 from ethereum_test_tools.utility.versioning import (
@@ -35,6 +41,8 @@ from ethereum_test_types import EnvironmentDefaults
 from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
 from ..spec_version_checker.spec_version_checker import get_ref_spec_from_module
 from .fixture_output import FixtureOutput
+
+MARKER_EXCLUSION_LIST = {"fork", "parametrize"}
 
 
 def default_output_directory() -> str:
@@ -753,12 +761,30 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     fixture_format=fixture_format,
                     eips=eips,
                 )
+
+                # Process markers
+                serialized_markers = []
+                for marker_obj in request.node.own_markers:
+                    if marker_obj.name in MARKER_EXCLUSION_LIST:
+                        continue
+                    pm_info = PytestMarkerInfo(
+                        name=marker_obj.name,
+                        args=list(marker_obj.args),
+                        kwargs=dict(marker_obj.kwargs),
+                    )
+                    serialized_markers.append(pm_info)
+
+                # Ensure _info_metadata exists and add markers to it
+                if not hasattr(t8n, "_info_metadata") or t8n._info_metadata is None:
+                    t8n._info_metadata = {}
+                t8n._info_metadata["markers"] = serialized_markers
+
                 fixture.fill_info(
                     t8n.version(),
                     test_case_description,
                     fixture_source_url=fixture_source_url,
                     ref_spec=reference_spec,
-                    _info_metadata=t8n._info_metadata,
+                    _info_metadata=t8n._info_metadata, # This now contains the markers
                 )
 
                 fixture_path = fixture_collector.add_fixture(
