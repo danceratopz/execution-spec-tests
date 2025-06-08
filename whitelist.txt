@@ -258,7 +258,6 @@ isort
 isort's
 ispkg
 itemName
-intermidiate
 javascripts
 jimporter
 joinpath
@@ -389,6 +388,7 @@ returncontract
 returndata
 returndatacopy
 returndatasize
+reusability
 rlp
 rootdir
 rpc
@@ -578,6 +578,8 @@ parametrization
 parametrizing
 popen
 prevrandao
+prover
+provers
 pytestconfig
 pytester
 pytestmark
@@ -793,6 +795,7 @@ precompiles
 deployer
 0x
 modexp
+ModExp
 0x00
 0x01
 0x10
@@ -1006,3 +1009,10 @@ Typecheck
 autoformat
 Typechecking
 zkEVMs
+qube
+aspell
+codespell
+nagydani
+guido
+marcin
+codespell

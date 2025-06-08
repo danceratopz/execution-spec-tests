@@ -15,6 +15,7 @@ from typing import Any, Dict, Generator, List, Type
 
 import pytest
 import xdist
+from _pytest.compat import NotSetType
 from _pytest.terminal import TerminalReporter
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
@@ -31,14 +32,18 @@ from ethereum_test_fixtures import (
     TestInfo,
 )
 from ethereum_test_forks import Fork, get_transition_fork_predecessor, get_transition_forks
-from ethereum_test_specs import SPEC_TYPES, BaseTest
+from ethereum_test_specs import BaseTest
 from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
 from ethereum_test_types import EnvironmentDefaults
 
-from ..shared.helpers import get_spec_format_for_item, labeled_format_parameter_set
+from ..shared.helpers import (
+    get_spec_format_for_item,
+    is_help_or_collectonly_mode,
+    labeled_format_parameter_set,
+)
 from ..spec_version_checker.spec_version_checker import get_ref_spec_from_module
 from .fixture_output import FixtureOutput
 
@@ -234,7 +239,7 @@ def pytest_configure(config):
     # Initialize fixture output configuration
     config.fixture_output = FixtureOutput.from_config(config)
 
-    if config.option.collectonly:
+    if is_help_or_collectonly_mode(config):
         return
 
     try:
@@ -280,7 +285,7 @@ def pytest_configure(config):
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config):
     """Add lines to pytest's console output header."""
-    if config.option.collectonly:
+    if is_help_or_collectonly_mode(config):
         return
     t8n_version = config.stash[metadata_key]["Tools"]["t8n"]
     return [(f"{t8n_version}")]
@@ -721,7 +726,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         t8n: TransitionTool,
         fork: Fork,
         reference_spec: ReferenceSpec,
-        eips: List[int],
         pre: Alloc,
         output_dir: Path,
         dump_dir_parameter_level: Path | None,
@@ -759,7 +763,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     t8n=t8n,
                     fork=fork,
                     fixture_format=fixture_format,
-                    eips=eips,
                 )
 
                 # Process markers
@@ -805,7 +808,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
 
 
 # Dynamically generate a pytest fixture for each test spec type.
-for cls in SPEC_TYPES:
+for cls in BaseTest.spec_types.values():
     # Fixture needs to be defined in the global scope so pytest can detect it.
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 
@@ -815,14 +818,17 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
     Pytest hook used to dynamically generate test cases for each fixture format a given
     test spec supports.
     """
-    for test_type in SPEC_TYPES:
+    for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
+            parameters = []
+            for i, format_with_or_without_label in enumerate(test_type.supported_fixture_formats):
+                parameter = labeled_format_parameter_set(format_with_or_without_label)
+                if i > 0:
+                    parameter.marks.append(pytest.mark.derived_test)  # type: ignore
+                parameters.append(parameter)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
-                [
-                    labeled_format_parameter_set(format_with_or_without_label)
-                    for format_with_or_without_label in test_type.supported_fixture_formats
-                ],
+                parameters,
                 scope="function",
                 indirect=True,
             )
@@ -851,6 +857,9 @@ def pytest_collection_modifyitems(
             continue
         fork: Fork = params["fork"]
         spec_type, fixture_format = get_spec_format_for_item(params)
+        if isinstance(fixture_format, NotSetType):
+            items.remove(item)
+            continue
         assert issubclass(fixture_format, BaseFixture)
         if not fixture_format.supports_fork(fork):
             items.remove(item)
@@ -892,7 +901,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
         return
 
     fixture_output = session.config.fixture_output  # type: ignore[attr-defined]
-    if fixture_output.is_stdout or session.config.option.collectonly:
+    if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
         return
 
     # Remove any lock files that may have been created.

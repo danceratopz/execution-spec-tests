@@ -33,13 +33,12 @@ from ethereum_test_base_types import (
 )
 from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork, Paris
-from ethereum_test_types.types import (
+from ethereum_test_types import (
     Transaction,
-    TransactionFixtureConverter,
-    TransactionGeneric,
     Withdrawal,
-    WithdrawalGeneric,
 )
+from ethereum_test_types.block_types import WithdrawalGeneric
+from ethereum_test_types.transaction_types import TransactionFixtureConverter, TransactionGeneric
 
 from .base import BaseFixture
 from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
@@ -387,7 +386,7 @@ class FixtureBlock(FixtureBlockBase):
 class FixtureConfig(CamelModel):
     """Chain configuration for a fixture."""
 
-    fork: str = Field(..., alias="network")
+    fork: Fork = Field(..., alias="network")
     chain_id: ZeroPaddedHexNumber = Field(ZeroPaddedHexNumber(1), alias="chainid")
     blob_schedule: FixtureBlobSchedule | None = None
 
@@ -403,12 +402,21 @@ class InvalidFixtureBlock(CamelModel):
 class BlockchainFixtureCommon(BaseFixture):
     """Base blockchain test fixture model."""
 
-    fork: str = Field(..., alias="network")
+    fork: Fork = Field(..., alias="network")
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     post_state: Alloc | None = Field(None)
+    post_state_hash: Hash | None = Field(None)
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
     config: FixtureConfig
+
+    def model_post_init(self, __context):
+        """Model post init method to check mutually exclusive fields."""
+        super().model_post_init(__context)
+        if self.post_state_hash is None and self.post_state is None:
+            raise ValueError("Either post_state_hash or post_state must be provided.")
+        if self.post_state_hash is not None and self.post_state is not None:
+            raise ValueError("Only one of post_state_hash or post_state must be provided.")
 
     @model_validator(mode="before")
     @classmethod
@@ -427,7 +435,7 @@ class BlockchainFixtureCommon(BaseFixture):
                     data["config"]["chainid"] = "0x01"
         return data
 
-    def get_fork(self) -> str | None:
+    def get_fork(self) -> Fork | None:
         """Return fork of the fixture as a string."""
         return self.fork
 
