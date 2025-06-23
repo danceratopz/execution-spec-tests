@@ -26,6 +26,7 @@ Users can select any of the artifacts depending on their testing needs for their
 #### 🔀 Refactoring
 
 - 🔀 Move `TransactionType` enum from test file to proper module location in `ethereum_test_types.transaction_types` for better code organization and reusability.
+- 🔀 Remove dependency `solc-select` and in CI instead fetch solc 0.8.24 from the official GitHub release. Code changes required involved porting a few Python tests that made use of Yul to our Opcode language ([#1779](https://github.com/ethereum/execution-spec-tests/pull/1779)).
 
 #### `fill`
 
