@@ -1,6 +1,6 @@
 # State Transition Tests
 
-This tutorial teaches you to create a state transition execution specification test. These tests verify that a starting pre-state will reach a specified post-state after executing a single transaction.
+This tutorial teaches you to create a state transition execution specification test. These tests verify that a starting pre-state will reach a specified post-state after executing a single transaction. Note: This tutorial is partly outdated because it still uses Yul code, today we instead only use our Python opcode language.
 
 ## Pre-requisites
 

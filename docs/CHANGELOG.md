@@ -8,6 +8,10 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 💥 Breaking Change
 
+#### 💥 Important Change for test contributors
+
+We do not allow usage of Yul code in your Python tests anymore. Please from now on make use of our opcode wrapper. The only place where Yul code is still allowed is in `static_tests`.
+
 #### 💥 Important Change for `fill` Users
 
 The output behavior of `fill` has changed ([#1608](https://github.com/ethereum/execution-spec-tests/pull/1608)):
@@ -26,7 +30,7 @@ Users can select any of the artifacts depending on their testing needs for their
 #### 🔀 Refactoring
 
 - 🔀 Move `TransactionType` enum from test file to proper module location in `ethereum_test_types.transaction_types` for better code organization and reusability.
-- 🔀 Remove dependency `solc-select` and in CI instead fetch solc 0.8.24 from the official GitHub release. Code changes required involved porting a few Python tests that made use of Yul to our Opcode language ([#1779](https://github.com/ethereum/execution-spec-tests/pull/1779)).
+- 🔀 Remove dependency `solc-select` and in CI instead fetch solc 0.8.24 from the official GitHub release. Code changes required involved porting a few Python tests that made use of Yul to our Opcode language ([#1779](https://github.com/ethereum/execution-spec-tests/pull/1779)). Solc is only needed for filling `static_tests`, from now on it is assumed that the solc binary (v0.8.24) is available in your PATH if you want to fill those.
 
 #### `fill`
 
