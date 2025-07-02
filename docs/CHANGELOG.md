@@ -10,7 +10,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### 💥 Important Change for test contributors
 
-We do not allow usage of Yul code in your Python tests anymore. Please from now on make use of our opcode wrapper. The only place where Yul code is still allowed is in `static_tests`.
+- EEST no longer allows usage of Yul code in Python tests. From now on, please make use of our opcode wrapper. Yul code is now only allowed in the "static tests" located in `./tests/static/` (these are test cases defined by JSON and YAML files instead of Python test functions that were originally maintained in [ethereum/tests](https://github.com/ethereum/tests)).
+- In order to fill the static tests (which is not the case by default), please ensure that `solc` is located in your `PATH`.
 
 #### 💥 Important Change for `fill` Users
 
@@ -30,7 +31,7 @@ Users can select any of the artifacts depending on their testing needs for their
 #### 🔀 Refactoring
 
 - 🔀 Move `TransactionType` enum from test file to proper module location in `ethereum_test_types.transaction_types` for better code organization and reusability.
-- 🔀 Remove dependency `solc-select` and in CI instead fetch solc 0.8.24 from the official GitHub release. Code changes required involved porting a few Python tests that made use of Yul to our Opcode language ([#1779](https://github.com/ethereum/execution-spec-tests/pull/1779)). Solc is only needed for filling `static_tests`, from now on it is assumed that the solc binary (v0.8.24) is available in your PATH if you want to fill those.
+- 🔀 This PR removes the `solc` requirement to fill Python test cases. Regular test contributors no longer need to concern themselves with `solc` and, as such, the `solc-select` dependency has been removed. The remaining tests that used Yul have been ported to the EEST opcode wrapper mini-lang and the use of Yul in Python tests is no longer supported. Maintainers only: To fill the "static" JSON and YAML tests (`./tests/static/`) locally, `solc` (ideally v0.8.24) must be available in your PATH.
 
 #### `fill`
 

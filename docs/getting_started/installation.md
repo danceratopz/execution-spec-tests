@@ -36,7 +36,7 @@ Clone [execution-spec-tests](https://github.com/ethereum/execution-spec-tests) a
     uv sync --all-extras
     ```
 
-To learn how to build the `solc` binary from source (optional) follow [this guide](./installation_troubleshooting.md#problem-exception-failed-to-compile-yul-source).
+Static tests/maintainers only: To learn how to build the `solc` binary from source (optional) follow [this guide](./installation_troubleshooting.md#problem-exception-failed-to-compile-yul-source).
 
 ## Installation Troubleshooting
 
